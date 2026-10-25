@@ -3,12 +3,12 @@ name = "tackline"
 version = "0.1.1"
 edition = "2024"
 rust-version = "1.88"
-description = "Steer coding agents from your terminal: put prompt instructions on lines of code, group them in sessions, and compile one prompt for Claude Code."
+description = "Point at code, write what your coding agent should do there, and hand it one Markdown prompt. Works with Claude Code, Codex, opencode, aider, Cursor and any agent that takes a prompt."
 license = "MIT"
 repository = "https://github.com/terminalkitten/tackline"
 homepage = "https://terminalkitten.github.io/tackline/"
 readme = "README.md"
-keywords = ["tui", "ai", "agent", "prompt", "claude"]
+keywords = ["tui", "ai", "agent", "prompt", "coding-agent"]
 categories = ["command-line-utilities", "development-tools"]
 # Docs site, screenshots and CI stay in the repository.
 exclude = ["docs/", ".github/"]
@@ -20,7 +20,9 @@ askama = "0.16.1"
 axum = "0.8.9"
 clap = { version = "4.6", features = ["derive"] }
 crossterm = { version = "0.29", features = ["osc52"] }
-git2 = "0.21"
+# No https/ssh: tackline never talks to remotes, and no OpenSSL makes
+# cross-platform release builds simple.
+git2 = { version = "0.21", default-features = false }
 grep-matcher = "0.1.9"
 grep-regex = "0.1.14"
 grep-searcher = "0.1.17"
@@ -43,3 +45,8 @@ ulid = "3"
 [dev-dependencies]
 insta = "1.49"
 tower = { version = "0.5", features = ["util"] }
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"

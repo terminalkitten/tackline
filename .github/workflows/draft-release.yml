@@ -1,0 +1,47 @@
+# dist plan job: runs first on a version tag. Waits for approval (the `release`
+# environment), checks and tests the tagged commit, then opens a draft GitHub
+# Release with the grouped notes. dist uploads the binaries to it and publishes
+# it once everything is done, so nothing is public before approval.
+name: Draft release
+
+on:
+  workflow_call:
+    inputs:
+      plan:
+        required: false
+        type: string
+
+jobs:
+  draft:
+    # The release workflow also runs (plan only) on pull requests: skip there.
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    # Add yourself as a required reviewer (repo Settings → Environments → release).
+    environment: release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # all tags and commits, for the notes
+      - name: Tag matches Cargo.toml
+        run: |
+          version=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag is $GITHUB_REF_NAME but Cargo.toml says $version"
+            exit 1
+          fi
+      - run: rustup component add rustfmt clippy
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test
+      - run: scripts/release-notes.sh "$GITHUB_REF_NAME" > notes.md
+      - name: Draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" --draft --notes-file notes.md
+          else
+            gh release create "$GITHUB_REF_NAME" --draft --verify-tag --title "tackline $GITHUB_REF_NAME" --notes-file notes.md
+          fi
