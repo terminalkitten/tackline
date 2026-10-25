@@ -610,7 +610,7 @@ mod screenshots {
         m.update(Msg::Move(Motion::Up));
         note(&mut m, &[], "return early when query is empty");
         m.update(Msg::OpenFile("scripts/score.py".into()));
-        note(&mut m, &[down.clone()], "use math.fsum here");
+        note(&mut m, std::slice::from_ref(&down), "use math.fsum here");
         m.update(Msg::DismissToast);
 
         // Files view: a selection on its way to becoming a note.
