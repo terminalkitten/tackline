@@ -151,6 +151,20 @@ cargo test
 cargo test screenshots -- --ignored   # redraw docs/site/img/*.svg
 ```
 
+### Releasing
+
+Bump `version` in `Cargo.toml`, commit, then tag and push:
+
+```sh
+git tag -s v0.1.2 -m "tackline 0.1.2"
+git push origin main v0.1.2
+```
+
+The tag starts `.github/workflows/release.yml`: it checks that the tag matches
+`Cargo.toml` and runs the tests, publishes to crates.io (trusted publishing,
+no stored token) and opens a draft GitHub release with the changes since the
+previous tag. Preview those notes locally with `scripts/release-notes.sh v0.1.2`.
+
 The usage docs are in [`docs/site/`](docs/site/index.md), built with
 [dokk](https://github.com/terminalkitten/dokk):
 

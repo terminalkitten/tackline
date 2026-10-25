@@ -1,0 +1,58 @@
+name: Release
+
+# Push a tag like v0.1.2 (matching Cargo.toml's version) to:
+#   1. check and test that commit,
+#   2. publish it to crates.io (trusted publishing, no stored token),
+#   3. open a draft GitHub release with the changes since the previous tag.
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Tag matches Cargo.toml
+        run: |
+          version=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag is $GITHUB_REF_NAME but Cargo.toml says $version"
+            exit 1
+          fi
+      - run: rustup component add rustfmt clippy
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test
+
+  publish:
+    needs: check
+    runs-on: ubuntu-latest
+    # Add a required reviewer to this environment (repo settings) to approve
+    # each publish by hand: a published version can't be deleted.
+    environment: crates-io
+    permissions:
+      contents: read
+      id-token: write  # trusted publishing
+    steps:
+      - uses: actions/checkout@v7
+      - uses: rust-lang/crates-io-auth-action@v1
+        id: auth
+      - run: cargo publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+
+  draft-release:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # all tags and commits, for the notes
+      - run: scripts/release-notes.sh "$GITHUB_REF_NAME" > notes.md
+      - name: Draft release
+        run: gh release create "$GITHUB_REF_NAME" --draft --verify-tag --title "tackline $GITHUB_REF_NAME" --notes-file notes.md
+        env:
+          GH_TOKEN: ${{ github.token }}
