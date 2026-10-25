@@ -13,7 +13,7 @@ pub mod toast;
 
 use tui_realm_stdlib::components::Paragraph;
 use tuirealm::component::{AppComponent, Component};
-use tuirealm::event::{Event, Key, KeyModifiers, NoUserEvent};
+use tuirealm::event::{Event, Key, KeyModifiers, MouseEventKind, NoUserEvent};
 use tuirealm::props::{BorderType, Borders, Color};
 use tuirealm::ratatui::layout::{Constraint, Flex, Layout, Rect};
 
@@ -25,6 +25,25 @@ pub fn key(ev: &Event<NoUserEvent>) -> Option<(Key, bool)> {
     let k = ev.as_keyboard()?;
     Some((k.code, k.modifiers.contains(KeyModifiers::CONTROL)))
 }
+
+/// Mouse wheel / trackpad scroll, routed by the model from its position.
+pub fn wheel(ev: &Event<NoUserEvent>) -> Option<Msg> {
+    let Event::Mouse(m) = ev else { return None };
+    let lines = match m.kind {
+        MouseEventKind::ScrollDown => WHEEL_LINES,
+        MouseEventKind::ScrollUp => -WHEEL_LINES,
+        _ => return None,
+    };
+    Some(Msg::Wheel {
+        col: m.column,
+        row: m.row,
+        lines,
+    })
+}
+
+/// Lines per wheel step.
+// ponytail: fixed; make it a setting if trackpads feel too fast or slow.
+const WHEEL_LINES: isize = 3;
 
 /// Keys that work in every pane when no popup is open.
 pub fn global_key(ev: &Event<NoUserEvent>) -> Option<Msg> {
@@ -79,6 +98,6 @@ impl Default for Placeholder {
 
 impl AppComponent<Msg, NoUserEvent> for Placeholder {
     fn on(&mut self, ev: &Event<NoUserEvent>) -> Option<Msg> {
-        global_key(ev)
+        wheel(ev).or_else(|| global_key(ev))
     }
 }

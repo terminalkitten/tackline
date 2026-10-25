@@ -13,7 +13,7 @@ use tuirealm::ratatui::widgets::{Block, BorderType, Paragraph};
 use tuirealm::state::State;
 use two_face::re_exports::syntect::highlighting::Theme;
 
-use super::{global_key, key};
+use super::{global_key, key, wheel};
 use crate::app::{Motion, Msg, Popup, SelectionKind};
 use crate::highlight::color;
 
@@ -259,6 +259,9 @@ pub struct CodeView {
 
 impl AppComponent<Msg, NoUserEvent> for CodeView {
     fn on(&mut self, ev: &Event<NoUserEvent>) -> Option<Msg> {
+        if let Some(msg) = wheel(ev) {
+            return Some(msg);
+        }
         // Shift+arrows select: up/down by line, left/right by char.
         let k = ev.as_keyboard()?;
         if k.modifiers.contains(KeyModifiers::SHIFT) {

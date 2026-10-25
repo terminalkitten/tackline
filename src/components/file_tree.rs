@@ -16,7 +16,7 @@ use tuirealm::ratatui::layout::Rect;
 use tuirealm::ratatui::style::Modifier;
 use tuirealm::state::{State, StateValue};
 
-use super::{borders, global_key, key};
+use super::{borders, global_key, key, wheel};
 use crate::app::Msg;
 
 /// Node id of the root.
@@ -162,6 +162,9 @@ impl FileTree {
 
 impl AppComponent<Msg, NoUserEvent> for FileTree {
     fn on(&mut self, ev: &Event<NoUserEvent>) -> Option<Msg> {
+        if let Some(msg) = wheel(ev) {
+            return Some(msg);
+        }
         let cmd = match key(ev)? {
             (Key::Down | Key::Char('j'), false) => Cmd::Move(Direction::Down),
             (Key::Up | Key::Char('k'), false) => Cmd::Move(Direction::Up),

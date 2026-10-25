@@ -1828,6 +1828,7 @@ dependencies = [
  "anyhow",
  "arboard",
  "clap",
+ "crossterm",
  "git2",
  "grep-matcher",
  "grep-regex",

@@ -6,7 +6,7 @@ use tui_realm_stdlib::components::Paragraph;
 use tui_realm_textarea::{TEXTAREA_CMD_NEWLINE, TextArea};
 use tuirealm::command::{Cmd, Direction, Position};
 use tuirealm::component::{AppComponent, Component};
-use tuirealm::event::{Event, Key, NoUserEvent};
+use tuirealm::event::{Event, Key, KeyModifiers, NoUserEvent};
 use tuirealm::props::{HorizontalAlignment, Title};
 use tuirealm::ratatui::layout::{Constraint, Layout, Rect};
 use tuirealm::ratatui::style::{Color, Modifier, Style};
@@ -104,7 +104,7 @@ impl NoteText {
         let mut component = TextArea::new(lines)
             .borders(borders(true))
             .title(
-                Title::from(" Prompt · Ctrl+S saves · Esc cancels ")
+                Title::from(" Prompt · Enter saves · Shift+Enter newline · Esc cancels ")
                     .alignment(HorizontalAlignment::Left),
             )
             .cursor_style(Style::new().add_modifier(Modifier::REVERSED))
@@ -134,12 +134,21 @@ impl NoteText {
 
 impl AppComponent<Msg, NoUserEvent> for NoteText {
     fn on(&mut self, ev: &Event<NoUserEvent>) -> Option<Msg> {
+        let k = ev.as_keyboard()?;
+        // Shift+Enter needs a terminal that reports it (kitty protocol);
+        // Alt+Enter and Ctrl+J work everywhere.
+        let newline = k.code == Key::Enter
+            && k.modifiers
+                .intersects(KeyModifiers::SHIFT | KeyModifiers::ALT);
         let cmd = match key(ev)? {
+            _ if newline => Cmd::Custom(TEXTAREA_CMD_NEWLINE),
             (Key::Esc, _) => return Some(Msg::ClosePopup),
-            (Key::Char('s'), true) => return Some(Msg::SaveNote(self.text())),
+            (Key::Enter, false) | (Key::Char('s'), true) => {
+                return Some(Msg::SaveNote(self.text()));
+            }
+            (Key::Char('j'), true) => Cmd::Custom(TEXTAREA_CMD_NEWLINE),
             (Key::Tab, _) => return Some(Msg::CycleSession(1)),
             (Key::BackTab, _) => return Some(Msg::CycleSession(-1)),
-            (Key::Enter, _) => Cmd::Custom(TEXTAREA_CMD_NEWLINE),
             (Key::Char(c), false) => Cmd::Type(c),
             (Key::Backspace, _) => Cmd::Delete,
             (Key::Delete, _) => Cmd::Cancel,
@@ -200,12 +209,12 @@ mod tests {
     }
 
     #[test]
-    fn enter_is_newline_ctrl_s_saves() {
+    fn enter_saves_shift_enter_is_newline() {
         let mut text = NoteText::new("");
         for c in "make it async".chars() {
             press(&mut text, Key::Char(c), KeyModifiers::NONE);
         }
-        press(&mut text, Key::Enter, KeyModifiers::NONE);
+        press(&mut text, Key::Enter, KeyModifiers::SHIFT);
         for c in "keep the API".chars() {
             press(&mut text, Key::Char(c), KeyModifiers::NONE);
         }
@@ -213,9 +222,12 @@ mod tests {
             press(&mut text, Key::Tab, KeyModifiers::NONE),
             Some(Msg::CycleSession(1))
         );
+        press(&mut text, Key::Enter, KeyModifiers::ALT);
+        press(&mut text, Key::Char('j'), KeyModifiers::CONTROL);
+        press(&mut text, Key::Char('!'), KeyModifiers::NONE);
         assert_eq!(
-            press(&mut text, Key::Char('s'), KeyModifiers::CONTROL),
-            Some(Msg::SaveNote("make it async\nkeep the API".into()))
+            press(&mut text, Key::Enter, KeyModifiers::NONE),
+            Some(Msg::SaveNote("make it async\nkeep the API\n\n!".into()))
         );
     }
 

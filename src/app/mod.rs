@@ -146,6 +146,12 @@ pub enum Msg {
     /// `n` / `N` after `/`.
     FindNext,
     FindPrev,
+    /// Mouse wheel at a screen position; `lines` > 0 scrolls down.
+    Wheel {
+        col: u16,
+        row: u16,
+        lines: isize,
+    },
     /// Terminal size (width, height).
     Resize(u16, u16),
     /// A component changed only its own widget state.
@@ -362,6 +368,7 @@ impl Model {
             Msg::QueryEnter(query) => self.query_enter(query),
             Msg::PickerMove(step) => self.picker_move(step),
             Msg::FindNext => self.find_next(true),
+            Msg::Wheel { col, row, lines } => self.wheel(col, row, lines),
             Msg::FindPrev => self.find_next(false),
             Msg::Resize(w, h) => {
                 self.size = (w, h);
@@ -446,6 +453,32 @@ impl Model {
     fn save_state(&mut self) {
         let result = self.store.save_state(&self.state);
         self.saved(result);
+    }
+
+    fn wheel(&mut self, col: u16, row: u16, lines: isize) {
+        let areas = layout(Rect::new(0, 0, self.size.0, self.size.1));
+        let at = tuirealm::ratatui::layout::Position::new(col, row);
+        match self.view {
+            View::Files if areas.code.contains(at) => self.scroll_lines(lines),
+            View::Session if areas.main.contains(at) && lines > 0 => self.update(Msg::NoteDown),
+            View::Session if areas.main.contains(at) => self.update(Msg::NoteUp),
+            _ => {}
+        }
+    }
+
+    /// Scroll the view without moving the cursor, except to keep it on screen.
+    fn scroll_lines(&mut self, lines: isize) {
+        let Some(text) = self.lines() else { return };
+        let rows = self.viewport().0;
+        let len = text.len();
+        let top = (self.top as isize + lines).clamp(0, len.saturating_sub(rows) as isize) as usize;
+        let line = self.cursor.line.clamp(top, (top + rows - 1).min(len - 1));
+        let col = self
+            .cursor
+            .col
+            .min(text[line].chars().count().saturating_sub(1));
+        self.top = top;
+        self.cursor = Cursor { line, col };
     }
 
     fn move_cursor(&mut self, motion: Motion) {
@@ -652,6 +685,41 @@ mod tests {
             frames += 1;
         }
         assert_eq!(frames, 4);
+    }
+
+    #[test]
+    fn wheel_scrolls_the_view_and_drags_the_cursor_along() {
+        let repo = fixture_repo();
+        let mut m = model(repo.path());
+        let body: String = (1..=100).map(|i| format!("line {i}\n")).collect();
+        fs::write(repo.path().join("long.txt"), body).unwrap();
+        m.update(Msg::OpenFile("long.txt".into()));
+        m.update(Msg::Move(Motion::Down));
+        // 80x12: the code pane starts at x=32; 9 visible rows.
+        let wheel = |lines| Msg::Wheel {
+            col: 50,
+            row: 5,
+            lines,
+        };
+        m.update(wheel(3));
+        assert_eq!((m.top, m.cursor.line), (3, 3), "cursor kept on screen");
+        m.update(wheel(-3));
+        assert_eq!(
+            (m.top, m.cursor.line),
+            (0, 3),
+            "cursor stays put while visible"
+        );
+        for _ in 0..50 {
+            m.update(wheel(3));
+        }
+        assert_eq!((m.top, m.cursor.line), (91, 91), "stops at the end");
+        // Over the tree: nothing.
+        m.update(Msg::Wheel {
+            col: 5,
+            row: 5,
+            lines: -3,
+        });
+        assert_eq!(m.top, 91);
     }
 
     #[test]

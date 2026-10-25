@@ -5,6 +5,9 @@ use std::path::Path;
 use std::time::Duration;
 
 use anyhow::Result;
+use crossterm::event::{
+    KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
+};
 use tuirealm::application::{Application, PollStrategy};
 use tuirealm::event::NoUserEvent;
 use tuirealm::listener::EventListenerCfg;
@@ -34,15 +37,29 @@ type App = Application<Id, Msg, NoUserEvent>;
 const TOAST_TTL: Duration = Duration::from_secs(3);
 
 pub fn run(mut model: Model) -> Result<()> {
-    let mut app = mount(
-        &model.root,
-        EventListenerCfg::default().crossterm_input_listener(Duration::from_millis(20), 3),
-    )?;
-    // `new` also installs a panic hook that leaves raw mode and the
-    // alternate screen before the panic message prints.
+    // `new` also installs a panic hook that leaves raw mode, the alternate
+    // screen and mouse capture before the panic message prints.
     let mut term = CrosstermTerminalAdapter::new()?;
     term.enable_raw_mode()?;
     term.enter_alternate_screen()?;
+    term.enable_mouse_capture()?;
+    // Ask for unambiguous keys (Shift+Enter ≠ Enter) where the terminal
+    // supports the kitty protocol. The flags belong to the alternate screen,
+    // so leaving it (also on panic) drops them. Must run before the input
+    // listener starts, or it could eat the terminal's reply.
+    let enhanced = crossterm::terminal::supports_keyboard_enhancement().unwrap_or(false);
+    if enhanced {
+        crossterm::execute!(
+            std::io::stdout(),
+            PushKeyboardEnhancementFlags(KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES)
+        )?;
+    }
+    let mut app = mount(
+        &model.root,
+        // Poll often and take everything waiting: key repeat and trackpad
+        // bursts would otherwise queue up (3 events / 20ms caps at ~150/s).
+        EventListenerCfg::default().crossterm_input_listener(Duration::from_millis(5), 256),
+    )?;
     let mut clipboard = None;
 
     let mut dirty = true;
@@ -77,10 +94,14 @@ pub fn run(mut model: Model) -> Result<()> {
         // Keep drawing while highlighting catches up with the visible rows.
         dirty = model.highlight_pending();
         let wait = if dirty { 1 } else { 50 };
-        for msg in app.tick(PollStrategy::Once(Duration::from_millis(wait)))? {
+        // Apply every queued event, then draw once.
+        for msg in app.tick(PollStrategy::UpTo(256, Duration::from_millis(wait)))? {
             model.update(msg);
             dirty = true;
         }
+    }
+    if enhanced {
+        crossterm::execute!(std::io::stdout(), PopKeyboardEnhancementFlags)?;
     }
     term.restore()?;
     Ok(())

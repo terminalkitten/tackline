@@ -26,7 +26,7 @@ const KEYS: &[(&str, &str)] = &[
     ("v / V", "Select chars / lines (again: stop)"),
     ("Shift+arrows", "Select lines (↑↓) or chars (←→)"),
     ("c", "Note the selection or line (or open its note)"),
-    ("Note: Ctrl+S", "Save (Enter: newline, Tab: session)"),
+    ("Note: Enter", "Save (Shift+Enter: newline, Tab: session)"),
     ("Esc", "Clear the selection"),
     ("Session: j k", "Select note"),
     ("Session: Enter", "Jump to the note"),
