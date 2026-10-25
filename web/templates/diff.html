@@ -9,7 +9,16 @@
   <a href="/diff?path={{ f.path|urlencode }}" {% if f.selected %}class="current"{% endif %}><span class="add">+{{ f.added }}</span> <span class="del">-{{ f.removed }}</span> {{ f.path }}</a>
   {% endfor %}
 </aside>
-<main>
-  {% if let Some(code) = code %}{% include "code.html" %}{% endif %}
+{% if let Some(code) = code %}
+<main class="editor">
+  {% include "code.html" %}
 </main>
+{% else %}
+<main>
+  <section class="empty">
+    <h1>Nothing to review</h1>
+    <p>{% if let Some(e) = error %}{{ e }}{% else %}No changes against {{ against }}. Edit a file, or open one in <a href="/">Files</a> to add notes there.{% endif %}</p>
+  </section>
+</main>
+{% endif %}
 {% endblock %}

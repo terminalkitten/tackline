@@ -184,6 +184,17 @@ pub struct CodeRow {
     pub stale: bool,
     pub note_id: String,
     pub excerpt: String,
+    /// Notes that end on this row: shown in a row of their own below it.
+    pub notes_after: Vec<NoteCard>,
+}
+
+/// A note shown inline under its last line, like a review comment.
+pub struct NoteCard {
+    pub id: String,
+    pub text: String,
+    /// `src/matcher.rs:L3-5`.
+    pub location: String,
+    pub stale: bool,
 }
 
 pub struct CodeView {
@@ -192,6 +203,21 @@ pub struct CodeView {
     pub placeholder: Option<String>,
     pub focus: usize,
     pub diff: bool,
+    /// Notes of the active session shown in this file.
+    pub notes: usize,
+}
+
+impl CodeView {
+    fn empty(path: String, placeholder: String, focus: usize, diff: bool) -> CodeView {
+        CodeView {
+            path,
+            rows: Vec::new(),
+            placeholder: Some(placeholder),
+            focus,
+            diff,
+            notes: 0,
+        }
+    }
 }
 
 fn highlighted(ctx: &Ctx, path: &Path, lines: &[String]) -> Vec<String> {
@@ -206,15 +232,17 @@ fn highlighted(ctx: &Ctx, path: &Path, lines: &[String]) -> Vec<String> {
 }
 
 /// Gutter markers and note ids per row, from where the active session's notes
-/// are in `text` now. `to_rows` maps a note's lines to rows.
+/// are in `text` now. `to_rows` maps a note's lines to rows. Returns how many
+/// notes are shown.
 fn marks(
     rows: &mut [CodeRow],
     session: Option<&Session>,
     path: &Path,
     text: &str,
     to_rows: impl Fn(u32, u32) -> Option<(usize, usize)>,
-) {
-    let Some(session) = session else { return };
+) -> usize {
+    let Some(session) = session else { return 0 };
+    let mut shown = 0;
     for l in anchor::locate(&session.notes, path, text) {
         let Some((first, last)) = to_rows(l.span.start_line, l.span.end_line) else {
             continue;
@@ -237,22 +265,24 @@ fn marks(
             row.note_id = note.id.clone();
             row.excerpt = excerpt.clone();
         }
+        if let Some(row) = rows.get_mut(last) {
+            row.notes_after.push(NoteCard {
+                id: note.id.clone(),
+                text: note.text.clone(),
+                location: format!("{}:{}", path.display(), l.span.ui_label()),
+                stale: l.stale,
+            });
+            shown += 1;
+        }
     }
+    shown
 }
 
 fn file_view(ctx: &Ctx, data: &Data, rel: &Path, focus: usize) -> CodeView {
     let path = rel.display().to_string();
     let lines = match read_lines(&ctx.root.join(rel)) {
         Ok(lines) => lines,
-        Err(e) => {
-            return CodeView {
-                path,
-                rows: Vec::new(),
-                placeholder: Some(e),
-                focus,
-                diff: false,
-            };
-        }
+        Err(e) => return CodeView::empty(path, e, focus, false),
     };
     let mut rows: Vec<CodeRow> = highlighted(ctx, rel, &lines)
         .into_iter()
@@ -269,10 +299,11 @@ fn file_view(ctx: &Ctx, data: &Data, rel: &Path, focus: usize) -> CodeView {
             stale: false,
             note_id: String::new(),
             excerpt: String::new(),
+            notes_after: Vec::new(),
         })
         .collect();
     let session = data.active().map(|i| &data.sessions[i]);
-    marks(&mut rows, session, rel, &lines.join("\n"), |s, e| {
+    let notes = marks(&mut rows, session, rel, &lines.join("\n"), |s, e| {
         Some((s as usize - 1, e as usize - 1))
     });
     CodeView {
@@ -281,6 +312,7 @@ fn file_view(ctx: &Ctx, data: &Data, rel: &Path, focus: usize) -> CodeView {
         placeholder: None,
         focus,
         diff: false,
+        notes,
     }
 }
 
@@ -292,13 +324,7 @@ fn diff_view(ctx: &Ctx, data: &Data, file: &git::FileDiff, focus: usize) -> Code
         } else {
             "No line changes (an empty file, or only its mode changed)"
         };
-        return CodeView {
-            path,
-            rows: Vec::new(),
-            placeholder: Some(msg.into()),
-            focus,
-            diff: true,
-        };
+        return CodeView::empty(path, msg.into(), focus, true);
     }
     let texts: Vec<String> = file.rows.iter().map(|r| r.text.clone()).collect();
     let html = highlighted(ctx, &file.path, &texts);
@@ -333,11 +359,12 @@ fn diff_view(ctx: &Ctx, data: &Data, file: &git::FileDiff, focus: usize) -> Code
             stale: false,
             note_id: String::new(),
             excerpt: String::new(),
+            notes_after: Vec::new(),
         })
         .collect();
     let text = std::fs::read_to_string(ctx.root.join(&file.path)).unwrap_or_default();
     let session = data.active().map(|i| &data.sessions[i]);
-    marks(&mut rows, session, &file.path, &text, |s, e| {
+    let notes = marks(&mut rows, session, &file.path, &text, |s, e| {
         git::rows_showing(&file.rows, s, e)
     });
     CodeView {
@@ -346,6 +373,7 @@ fn diff_view(ctx: &Ctx, data: &Data, file: &git::FileDiff, focus: usize) -> Code
         placeholder: None,
         focus,
         diff: true,
+        notes,
     }
 }
 

@@ -218,6 +218,19 @@ fn add_a_note_and_see_it() {
         );
         assert!(page.contains("Note added"));
         assert!(page.contains(&format!("/notes/{}/edit", note.id)));
+        // The note itself, inline under its last line, ready to edit in place.
+        assert!(page.contains(&format!("data-note-card=\"{}\"", note.id)));
+        assert!(page.contains("<span class=\"note-text\">use an iterator</span>"));
+        assert!(page.contains("data-location=\"src/matcher.rs:L3-5\""));
+        assert!(
+            page.contains("data-excerpt=\"use an iterator\""),
+            "status bar excerpt"
+        );
+        assert!(page.contains("● 1</span>"), "note count on the tab");
+        assert!(
+            !page.contains("title=\"use an iterator\""),
+            "no tooltip-only preview"
+        );
 
         // Empty text: refused with a message, nothing saved.
         let form = "file=src/matcher.rs&view=code&start=1&end=1&text=+&return=%2F";
@@ -249,6 +262,8 @@ fn notes_on_the_diff() {
         let form = "file=web/app.ts&view=diff&start=0&end=1&text=x&return=%2Fdiff";
         let (_, location, _) = send(&ctx, "POST", "/notes", Some(form)).await;
         assert!(location.contains("Removed%20lines"), "{location}");
+        let (_, _, page) = send(&ctx, "GET", "/diff?path=web/app.ts", None).await;
+        assert!(page.contains("<span class=\"note-text\">read from env</span>"));
     });
 }
 
@@ -298,6 +313,14 @@ fn session_page_edit_move_reorder_delete_and_prompt() {
                 .collect::<Vec<_>>()
         };
         assert_eq!(texts(&store), ["two", "one"]);
+
+        // Edit in the list: a form per note, prefilled.
+        let (_, _, page) = send(&ctx, "GET", "/session", None).await;
+        assert!(page.contains(&format!(
+            "<form class=\"inline-edit\" action=\"/notes/{}\" method=\"post\" hidden>",
+            ids[0]
+        )));
+        assert!(page.contains("required>one</textarea>"));
 
         let (_, _, edit) = send(
             &ctx,

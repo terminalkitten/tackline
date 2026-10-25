@@ -10,7 +10,7 @@
   <form action="/notes/{{ id }}" method="post">
     <input type="hidden" name="return" value="{{ back }}">
     <textarea name="text" rows="6" required>{{ text }}</textarea>
-    <div class="add-note-foot">
+    <div class="note-panel-foot">
       <label>Session
         <select name="session">
           {% for s in nav.sessions %}<option value="{{ s.id }}" {% if s.id == session_id %}selected{% endif %}>{{ s.name }}</option>{% endfor %}

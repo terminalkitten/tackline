@@ -2,10 +2,12 @@
 {% block title %}{% if let Some(code) = code %}{{ code.path }} · {% endif %}tackline{% endblock %}
 {% block body %}
 <aside class="side tree">{{ tree|safe }}</aside>
+{% if let Some(code) = code %}
+<main class="editor">
+  {% include "code.html" %}
+</main>
+{% else %}
 <main>
-  {% if let Some(code) = code %}
-    {% include "code.html" %}
-  {% else %}
   <section class="empty">
     <h1>Steer your coding agent</h1>
     <ol>
@@ -15,6 +17,6 @@
       <li>Open <a href="/session">Session</a> and copy the prompt for Claude Code.</li>
     </ol>
   </section>
-  {% endif %}
 </main>
+{% endif %}
 {% endblock %}

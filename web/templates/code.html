@@ -1,32 +1,61 @@
-{# The code or diff of one file, with note marks and line selection. Needs `code` and `nav`. #}
-<section class="code-pane">
-  <h2 class="file">{{ code.path }}</h2>
+{# The code or diff of one file as an editor pane: a tab with the path, the
+   code with note marks and line selection, notes inline under their last
+   line, and a status bar. Needs `code` and `nav`. #}
+<section class="editor-pane" data-file="{{ code.path }}" data-view="{% if code.diff %}diff{% else %}code{% endif %}">
+  <div class="editor-tabs">
+    <div class="editor-tab" title="{{ code.path }}">
+      <span class="tab-path">{{ code.path }}</span>
+      {% if code.diff %}<span class="tab-badge">diff</span>{% endif %}
+      {% if code.notes > 0 %}<span class="tab-notes" title="Notes in this file">● {{ code.notes }}</span>{% endif %}
+    </div>
+    <span class="editor-hint">Click a line number to select · shift-click to extend</span>
+  </div>
+  <div class="code-scroll">
   {% if let Some(p) = code.placeholder %}
   <p class="placeholder">{{ p }}</p>
   {% else %}
   <table class="code {% if code.diff %}diff{% endif %}" data-file="{{ code.path }}" data-view="{% if code.diff %}diff{% else %}code{% endif %}" data-focus="{{ code.focus }}">
     {% for r in code.rows %}
-    <tr data-index="{{ r.index }}" class="{{ r.kind }}{% if r.noted %} noted{% endif %}{% if r.stale %} stale{% endif %}"{% if r.noted %} title="{{ r.excerpt }}"{% endif %}>
+    <tr data-index="{{ r.index }}" data-line="{{ r.num }}" class="{{ r.kind }}{% if r.noted %} noted{% endif %}{% if r.stale %} stale{% endif %}"{% if r.noted %} data-note="{{ r.note_id }}" data-excerpt="{{ r.excerpt }}"{% endif %}>
       {% if code.diff %}<td class="num old">{{ r.old }}</td>{% endif %}
-      <td class="num" title="Click to select, shift-click to extend">{{ r.num }}</td>
-      <td class="mark">{% if r.noted %}<a href="/notes/{{ r.note_id }}/edit?return={{ nav.here|urlencode }}" title="{{ r.excerpt }}">{{ r.marker }}</a>{% endif %}</td>
+      <td class="num">{{ r.num }}</td>
+      <td class="mark">{% if r.noted %}<a href="/notes/{{ r.note_id }}/edit?return={{ nav.here|urlencode }}" hx-boost="false" data-edit-note="{{ r.note_id }}" aria-label="Edit note">{{ r.marker }}</a>{% endif %}</td>
       {% if code.diff %}<td class="sign">{{ r.sign }}</td>{% endif %}
       <td class="src">{{ r.html|safe }}</td>
     </tr>
+    {% for n in r.notes_after %}
+    <tr class="note-row{% if n.stale %} stale{% endif %}" data-note-card="{{ n.id }}">
+      <td class="note-gutter" colspan="{% if code.diff %}4{% else %}2{% endif %}"></td>
+      <td class="note-cell">
+        <div class="note-card" data-edit-note="{{ n.id }}" data-text="{{ n.text }}" data-location="{{ n.location }}" title="Click to edit">
+          <span class="note-dot">{% if n.stale %}⚠{% else %}●{% endif %}</span>
+          <span class="note-text">{{ n.text }}</span>
+          <a class="note-edit-link" href="/notes/{{ n.id }}/edit?return={{ nav.here|urlencode }}" hx-boost="false" data-edit-note="{{ n.id }}">Edit</a>
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
     {% endfor %}
   </table>
-  <form id="add-note" class="add-note" action="/notes" method="post" hidden>
+  {% endif %}
+  </div>
+  <footer class="statusbar">
+    <span class="status-note"></span>
+    <span class="status-pos">{% if code.diff %}Diff{% else %}{{ code.rows.len() }} lines{% endif %}</span>
+  </footer>
+  {% if code.placeholder.is_none() %}
+  <form id="note-form" class="note-panel" action="/notes" method="post" data-add-action="/notes" hidden>
     <input type="hidden" name="file" value="{{ code.path }}">
     <input type="hidden" name="view" value="{% if code.diff %}diff{% else %}code{% endif %}">
     <input type="hidden" name="start">
     <input type="hidden" name="end">
     <input type="hidden" name="return" value="{{ nav.here }}">
-    <div class="add-note-head">
-      <strong>Add a note</strong> <span class="where"></span>
-      <button type="button" class="link" data-clear>Cancel</button>
+    <div class="note-panel-head">
+      <strong class="title">Add a note</strong> <span class="where"></span>
+      <button type="button" class="link" data-clear title="Esc">Cancel</button>
     </div>
     <textarea name="text" rows="3" placeholder="What should the agent do here?  (Ctrl+Enter saves)" required></textarea>
-    <div class="add-note-foot">
+    <div class="note-panel-foot">
       {% if nav.sessions.is_empty() %}
       <input name="new_session" placeholder="Session name, e.g. Search speedup">
       {% else %}
@@ -36,7 +65,8 @@
         </select>
       </label>
       {% endif %}
-      <button>Save note</button>
+      <button class="primary" data-save>Save note</button>
+      <button type="submit" class="danger" data-delete formnovalidate formaction="/notes" hidden disabled>Delete</button>
     </div>
   </form>
   {% endif %}
