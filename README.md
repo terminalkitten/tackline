@@ -1,0 +1,143 @@
+# tackline
+
+> A tackline is the short length of line on a signal halyard that separates
+> the flags. This tool hangs signals on lines of code for an agent to read.
+
+A terminal app for steering coding agents. Browse your files or the git
+diff, select a line or a span of code, and attach a prompt instruction to it.
+Notes are grouped into named sessions, and a session compiles into one
+Markdown prompt for Claude Code.
+
+This is agent steering, not code review: notes are instructions and context
+for an agent, not verdicts on the code.
+
+![Files view with notes in the gutter](docs/screenshots/files.svg)
+
+## Install
+
+```sh
+cargo install --path .
+alias tack=tackline   # optional
+```
+
+Run it inside a git repository (or any subdirectory of one). Outside a repo
+the Files view still works, without the Diff view.
+
+## Workflow
+
+1. `tackline` opens on the Diff view if you have uncommitted changes,
+   otherwise on the Files view.
+2. Select code with `V` (lines), `v` (characters), Shift+arrows or a mouse
+   drag, and press `c`. Write the instruction and press `Enter`.
+   The first time, you name a session.
+3. Press `3` to review the session: every note with its location, code and
+   instruction, in prompt order (`J`/`K` reorder).
+4. Press `y` to copy the compiled prompt and paste it into Claude Code, or
+   skip the clipboard:
+
+```sh
+tackline export | claude -p
+tackline export "Search speedup" > prompt.md
+```
+
+The compiled prompt looks like this:
+
+````markdown
+# Search speedup
+
+1. `src/matcher.rs:3-7`
+   ```rs
+       for item in items {
+           if item.contains(query) {
+               out.push(item.clone());
+           }
+       }
+   ```
+   replace the loop with an iterator chain
+````
+
+Notes follow the code: when lines are inserted above a note or the code moves
+within the file, the note moves with it. If the annotated code is gone, the
+note is marked stale (`⚠`) and left out of the prompt with a warning.
+
+## Views
+
+| | |
+|---|---|
+| ![Note popup](docs/screenshots/note.svg) | ![Diff view](docs/screenshots/diff.svg) |
+| **Note popup**: location, code and target session (`Tab` cycles). | **Diff view**: notes attach to new-side lines. |
+
+![Session view](docs/screenshots/session.svg)
+
+## Keys
+
+Everything is Ctrl or plain keys: macOS terminals don't pass Cmd shortcuts on
+to terminal apps. Press `?` in the app for the full list.
+
+| Key | Action |
+|---|---|
+| `1` / `2` / `3` | Files / Diff / Session view |
+| `Ctrl+N` / `Ctrl+O` | New session / pick the active session |
+| `Ctrl+P` / `Ctrl+F` | Find a file / search code in the repo |
+| `Tab` | Switch between the list and the code |
+| `j` `k` `h` `l`, arrows, `gg` `G`, `Ctrl+D` `Ctrl+U`, `0` `$` | Move |
+| `/` then `n` / `N` | Search this file |
+| `:<n>` | Go to line |
+| `w` | Wrap long lines |
+| `v` / `V` / Shift+arrows / drag | Select characters / lines |
+| `c` | Note the selection (or the line); on a noted line, edit that note |
+| `d` | Delete the note on this line (asks first) |
+| `r` | Reload the diff |
+| `y` (Session view) | Copy the compiled prompt |
+| `e` / `d` / `J` `K` (Session view) | Edit / delete / reorder notes |
+| `q` | Quit (everything is saved as you go) |
+
+In the note popup, `Enter` saves. For a newline, type `\` and press `Enter`,
+or use `Shift+Enter` in terminals that report it (Ghostty, Kitty, WezTerm,
+Alacritty, iTerm2 with "Report keys using CSI u").
+
+## CLI
+
+```
+tackline [--base <rev>] [--theme <name>]
+    Open the app. --base diffs against merge-base(HEAD, <rev>), e.g.
+    --base upstream/main for a fork. --theme picks a syntax theme
+    (default: base16-ocean.dark, or InspiredGitHub on light terminals).
+
+tackline export [<session>]
+    Print the compiled prompt (default: the active session).
+    Warnings go to stderr.
+
+tackline sessions
+    List sessions with note counts; * marks the active one.
+```
+
+## Data
+
+Sessions live in `.tackline/sessions/<name>.json` in the repo root, one
+readable JSON file per session; `.tackline/state.json` remembers the active
+session and the last file. Every change is saved immediately (atomic writes).
+On first run tackline offers to add `.tackline/` to `.gitignore`.
+
+## Terminal notes
+
+- **Mouse**: tackline captures the mouse for clicks, drags and the wheel. To
+  select terminal text instead, hold Option (iTerm2, Terminal.app) or Shift
+  (most others) while dragging.
+- **Clipboard over ssh / tmux**: `y` copies with OSC 52, so the prompt lands
+  in your local clipboard. In tmux, enable `set -g set-clipboard on`.
+- **Speed**: rendering is done by your terminal; GPU-accelerated terminals
+  (Ghostty, WezTerm, Kitty, Alacritty, iTerm2) scroll smoothest.
+
+## Development
+
+```sh
+cargo fmt --check
+cargo clippy --all-targets -- -D warnings
+cargo test
+cargo test screenshots -- --ignored   # redraw docs/screenshots/*.svg
+```
+
+The spec is in [`docs/PLAN.md`](docs/PLAN.md). Built on
+[tui-realm](https://github.com/veeso/tui-realm), syntect with two-face, git2,
+nucleo and ripgrep's libraries.

@@ -477,3 +477,164 @@ mod tests {
         insta::assert_snapshot!("frame_find_in_file", frame(&mut m, Some(Popup::FindInFile)));
     }
 }
+
+/// `cargo test screenshots -- --ignored` redraws the README screenshots.
+#[cfg(test)]
+mod screenshots {
+    use super::*;
+    use crate::app::{Motion, SelectionKind};
+    use crate::highlight::load_theme;
+    use crate::store::MemStore;
+    use std::fmt::Write as _;
+    use tuirealm::ratatui::buffer::Buffer;
+    use tuirealm::ratatui::layout::Size;
+    use tuirealm::ratatui::style::{Color, Modifier};
+    use tuirealm::terminal::TestTerminalAdapter;
+
+    const SIZE: (u16, u16) = (110, 26);
+    const BG: &str = "#2b303b";
+    const FG: &str = "#c0c5ce";
+
+    fn hex(c: Color, fallback: &str) -> String {
+        let named = match c {
+            Color::Rgb(r, g, b) => return format!("#{r:02x}{g:02x}{b:02x}"),
+            Color::Reset => fallback,
+            Color::Black => "#1c1f26",
+            Color::Red | Color::LightRed => "#bf616a",
+            Color::Green | Color::LightGreen => "#a3be8c",
+            Color::Yellow | Color::LightYellow => "#ebcb8b",
+            Color::Blue | Color::LightBlue => "#8fa1b3",
+            Color::Magenta | Color::LightMagenta => "#b48ead",
+            Color::Cyan | Color::LightCyan => "#96b5b4",
+            Color::Gray | Color::White => "#dfe1e8",
+            Color::DarkGray => "#65737e",
+            Color::Indexed(24) => "#2d4f67",
+            Color::Indexed(_) => "#343d46",
+        };
+        named.to_string()
+    }
+
+    fn svg(buf: &Buffer) -> String {
+        let (cw, ch) = (8.4, 18.0);
+        let area = buf.area;
+        let (w, h) = (
+            area.width as f64 * cw + 24.0,
+            area.height as f64 * ch + 24.0,
+        );
+        let mut out = format!(
+            "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{w}\" height=\"{h}\" font-family=\"Menlo, Consolas, monospace\" font-size=\"14\">\n<rect width=\"100%\" height=\"100%\" rx=\"8\" fill=\"{BG}\"/>\n"
+        );
+        for y in 0..area.height {
+            for x in 0..area.width {
+                let cell = &buf[(x, y)];
+                let mut fg = hex(cell.fg, FG);
+                let mut bg = hex(cell.bg, BG);
+                if cell.modifier.contains(Modifier::REVERSED) {
+                    std::mem::swap(&mut fg, &mut bg);
+                }
+                let (px, py) = (12.0 + x as f64 * cw, 12.0 + y as f64 * ch);
+                if bg != BG {
+                    let _ = writeln!(
+                        out,
+                        "<rect x=\"{px}\" y=\"{py}\" width=\"{}\" height=\"{ch}\" fill=\"{bg}\"/>",
+                        cw + 0.4
+                    );
+                }
+                let sym = cell.symbol();
+                if sym.trim().is_empty() {
+                    continue;
+                }
+                let text = sym
+                    .replace('&', "&amp;")
+                    .replace('<', "&lt;")
+                    .replace('>', "&gt;");
+                let bold = if cell.modifier.contains(Modifier::BOLD) {
+                    " font-weight=\"bold\""
+                } else {
+                    ""
+                };
+                let _ = writeln!(
+                    out,
+                    "<text x=\"{px}\" y=\"{}\" fill=\"{fg}\"{bold}>{text}</text>",
+                    py + 14.0
+                );
+            }
+        }
+        out + "</svg>\n"
+    }
+
+    fn shot(model: &mut Model, opened: Option<Popup>, name: &str) {
+        let mut app = mount(&model.root, EventListenerCfg::default()).unwrap();
+        let mut term = TestTerminalAdapter::new(Size::new(SIZE.0, SIZE.1)).unwrap();
+        sync(model, &mut app, opened, true).unwrap();
+        let done = term.draw(|f| draw(&mut app, model, f)).unwrap();
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("docs/screenshots");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join(format!("{name}.svg")), svg(done.buffer)).unwrap();
+    }
+
+    #[test]
+    #[ignore]
+    fn screenshots() {
+        let repo = crate::testutil::fixture_repo();
+        let theme = load_theme(Some("base16-ocean.dark")).unwrap();
+        let mut m = Model::new(repo.path().into(), theme, Box::new(MemStore::default()))
+            .unwrap()
+            .with_git(None);
+        m.update(Msg::Confirm(false));
+        m.update(Msg::Resize(SIZE.0, SIZE.1));
+        m.update(Msg::NewSession("Search speedup".into()));
+        m.update(Msg::ShowView(View::Files));
+        m.update(Msg::OpenFile("src/matcher.rs".into()));
+        let note = |m: &mut Model, msgs: &[Msg], text: &str| {
+            msgs.iter().for_each(|msg| m.update(msg.clone()));
+            m.update(Msg::AddNote);
+            m.update(Msg::SaveNote(text.into()));
+        };
+        let down = Msg::Move(Motion::Down);
+        let line = Msg::ToggleSelection(SelectionKind::Line);
+        note(
+            &mut m,
+            &[
+                down.clone(),
+                down.clone(),
+                line.clone(),
+                down.clone(),
+                down.clone(),
+                down.clone(),
+                down.clone(),
+            ],
+            "replace the loop with an iterator chain:\nitems.iter().filter(..).cloned().collect()",
+        );
+        m.update(Msg::Move(Motion::Bottom));
+        m.update(Msg::Move(Motion::Up));
+        note(&mut m, &[], "return early when query is empty");
+        m.update(Msg::OpenFile("scripts/score.py".into()));
+        note(&mut m, &[down.clone()], "use math.fsum here");
+        m.update(Msg::DismissToast);
+
+        // Files view: a selection on its way to becoming a note.
+        m.update(Msg::OpenFile("src/matcher.rs".into()));
+        m.update(Msg::Move(Motion::Down));
+        m.update(line.clone());
+        m.update(Msg::Move(Motion::Down));
+        shot(&mut m, None, "files");
+        m.update(Msg::AddNote);
+        shot(&mut m, Some(Popup::Note), "note");
+        m.update(Msg::ClosePopup);
+        m.update(Msg::ClearSelection);
+
+        m.update(Msg::ShowView(View::Diff));
+        m.update(Msg::ToggleFocus);
+        m.update(Msg::ToggleSelection(SelectionKind::Line));
+        m.update(Msg::Move(Motion::Down));
+        m.update(Msg::AddNote);
+        m.update(Msg::SaveNote("read this from the build env instead".into()));
+        m.update(Msg::DismissToast);
+        shot(&mut m, None, "diff");
+
+        m.update(Msg::ShowView(View::Session));
+        m.update(Msg::NoteDown);
+        shot(&mut m, None, "session");
+    }
+}
