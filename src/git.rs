@@ -55,6 +55,20 @@ pub struct Row {
     pub text: String,
 }
 
+/// The working-tree lines (first, last) shown by `rows`, or `None` when any
+/// of them is a removed line or a hunk header: those can't have notes.
+pub fn new_lines(rows: &[Row]) -> Option<(u32, u32)> {
+    let new = rows.iter().map(|r| r.new).collect::<Option<Vec<u32>>>()?;
+    Some((*new.first()?, *new.last()?))
+}
+
+/// The rows (first, last index) that show working-tree lines
+/// `start..=end`, if any of them are in the diff.
+pub fn rows_showing(rows: &[Row], start: u32, end: u32) -> Option<(usize, usize)> {
+    let shown = |r: &Row| r.new.is_some_and(|n| (start..=end).contains(&n));
+    Some((rows.iter().position(shown)?, rows.iter().rposition(shown)?))
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FileDiff {
     /// New path, relative to the repo root (old path for deletions).
@@ -174,6 +188,28 @@ mod tests {
             "target\n.tackline/\n"
         );
         assert!(is_ignored(repo.path(), dir));
+    }
+
+    #[test]
+    fn rows_and_working_tree_lines() {
+        let row = |kind, old, new| Row {
+            kind,
+            old,
+            new,
+            text: String::new(),
+        };
+        let rows = [
+            row(RowKind::Hunk, None, None),
+            row(RowKind::Context, Some(1), Some(1)),
+            row(RowKind::Removed, Some(2), None),
+            row(RowKind::Added, None, Some(2)),
+            row(RowKind::Added, None, Some(3)),
+        ];
+        assert_eq!(new_lines(&rows[3..5]), Some((2, 3)));
+        assert_eq!(new_lines(&rows[1..4]), None, "a removed line in between");
+        assert_eq!(new_lines(&rows[0..1]), None, "a hunk header");
+        assert_eq!(rows_showing(&rows, 2, 3), Some((3, 4)));
+        assert_eq!(rows_showing(&rows, 9, 9), None);
     }
 
     #[test]

@@ -4,10 +4,10 @@
 use std::path::PathBuf;
 
 use super::{Cursor, Model, Motion, Popup, ToastKind, display_col};
-use crate::anchor::{Relocation, capture, relocate};
+use crate::anchor::{self, capture};
 use crate::components::code_view::{CodeProps, Mark, Selection as SelectionView};
 use crate::components::note_popup;
-use crate::git::Row;
+use crate::git;
 use crate::model::{Anchor, Note, Span, View};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -137,7 +137,7 @@ impl Model {
             None => (span, lines.join("\n")),
             Some(rows) => {
                 let picked = &rows[span.start_line as usize - 1..span.end_line as usize];
-                let Some(new) = picked.iter().map(|r| r.new).collect::<Option<Vec<u32>>>() else {
+                let Some((first, last)) = git::new_lines(picked) else {
                     return self.toast(
                         ToastKind::Warning,
                         "Removed lines and hunk headers can't have notes: select new-side lines",
@@ -147,8 +147,8 @@ impl Model {
                     return self.toast(ToastKind::Error, "Can't read the file for this diff");
                 };
                 let span = Span {
-                    start_line: new[0],
-                    end_line: new[new.len() - 1],
+                    start_line: first,
+                    end_line: last,
                     ..span
                 };
                 (span, text)
@@ -401,35 +401,20 @@ impl Model {
                         std::fs::read_to_string(self.root.join(&file.path)).unwrap_or_default()
                     }
                 };
-                session
-                    .notes
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, n)| n.file == file.path)
-                    .filter_map(|(i, n)| {
-                        let (span, stale) = match relocate(n.span, &n.anchor, &text) {
-                            Relocation::Kept => (n.span, false),
-                            Relocation::Moved(span) => (span, false),
-                            Relocation::Stale => (n.span, true),
-                        };
+                anchor::locate(&session.notes, &file.path, &text)
+                    .into_iter()
+                    .filter_map(|l| {
                         let (start, end) = match &file.diff {
-                            None => (span.start_line as usize - 1, span.end_line as usize - 1),
+                            None => (l.span.start_line as usize - 1, l.span.end_line as usize - 1),
                             Some(rows) => {
-                                let shown = |r: &&Row| {
-                                    r.new.is_some_and(|n| {
-                                        (span.start_line..=span.end_line).contains(&n)
-                                    })
-                                };
-                                let first = rows.iter().position(|r| shown(&r))?;
-                                let last = rows.iter().rposition(|r| shown(&r))?;
-                                (first, last)
+                                git::rows_showing(rows, l.span.start_line, l.span.end_line)?
                             }
                         };
                         Some(Mark {
                             start,
                             end,
-                            stale,
-                            note: i,
+                            stale: l.stale,
+                            note: l.note,
                         })
                     })
                     .collect()

@@ -3,7 +3,9 @@
 use std::cmp::Reverse;
 use std::ops::Range;
 
-use crate::model::{Anchor, Span};
+use std::path::Path;
+
+use crate::model::{Anchor, Note, Span};
 
 const CONTEXT_LINES: usize = 2;
 
@@ -59,6 +61,43 @@ pub fn relocate(span: Span, anchor: &Anchor, text: &str) -> Relocation {
             (Reverse(score), c.start_line.abs_diff(span.start_line))
         })
         .map_or(Relocation::Stale, Relocation::Moved)
+}
+
+/// Where a note is in a file now.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Located {
+    /// The relocated span; the stored one when stale.
+    pub span: Span,
+    pub stale: bool,
+    /// Index of the note in the list passed to [`locate`].
+    pub note: usize,
+}
+
+/// Where each of `notes` on `file` is in `text` now.
+pub fn locate(notes: &[Note], file: &Path, text: &str) -> Vec<Located> {
+    notes
+        .iter()
+        .enumerate()
+        .filter(|(_, n)| n.file == file)
+        .map(|(i, n)| {
+            let relocated = relocate(n.span, &n.anchor, text).span(n.span);
+            Located {
+                span: relocated.unwrap_or(n.span),
+                stale: relocated.is_none(),
+                note: i,
+            }
+        })
+        .collect()
+}
+
+/// Read the note's file under `root` and relocate the note in it: the file's
+/// text (if readable) and the note's span now (`None` when stale).
+pub fn locate_on_disk(root: &Path, note: &Note) -> (Option<String>, Option<Span>) {
+    let text = std::fs::read_to_string(root.join(&note.file)).ok();
+    let span = text
+        .as_deref()
+        .and_then(|t| relocate(note.span, &note.anchor, t).span(note.span));
+    (text, span)
 }
 
 /// File text normalised to `\n` endings, without the final newline, plus the
@@ -173,6 +212,35 @@ mod tests {
 
     fn anchored(span: Span, text: &str) -> (Span, Anchor) {
         (span, capture(span, text).unwrap())
+    }
+
+    #[test]
+    fn locate_notes_on_a_file() {
+        let note = |file: &str, span: Span, text: &str| {
+            Note::new(file.into(), span, capture(span, text).unwrap(), "x")
+        };
+        let notes = [
+            note("a.rs", Span::lines(5, 7), SRC),
+            note("b.rs", Span::lines(1, 1), SRC),
+            note("a.rs", Span::lines(2, 2), SRC),
+        ];
+        let edited = format!("// new\n{}", SRC.replace("    one();", "    uno();"));
+        let found = locate(&notes, Path::new("a.rs"), &edited);
+        assert_eq!(
+            found,
+            [
+                Located {
+                    span: Span::lines(6, 8),
+                    stale: false,
+                    note: 0
+                },
+                Located {
+                    span: Span::lines(2, 2),
+                    stale: true,
+                    note: 2
+                },
+            ]
+        );
     }
 
     #[test]

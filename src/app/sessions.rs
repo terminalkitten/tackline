@@ -1,6 +1,5 @@
 //! Session updates: create, pick, list notes, jump to one, copy the prompt.
 
-use std::fs;
 use std::path::Path;
 
 use two_face::re_exports::syntect::highlighting::Theme;
@@ -8,7 +7,7 @@ use two_face::re_exports::syntect::highlighting::Theme;
 use tuirealm::ratatui::layout::Rect;
 
 use super::{Id, Model, ToastKind, layout};
-use crate::anchor::relocate;
+use crate::anchor;
 use crate::compile::compile;
 use crate::components::code_view::CodeProps;
 use crate::components::session_view;
@@ -151,10 +150,7 @@ impl Model {
 }
 
 fn resolve(root: &Path, note: &Note, theme: &Theme) -> NoteRow {
-    let text = fs::read_to_string(root.join(&note.file)).ok();
-    let span = text
-        .as_deref()
-        .and_then(|t| relocate(note.span, &note.anchor, t).span(note.span));
+    let (text, span) = anchor::locate_on_disk(root, note);
     let lines: Vec<String> = match (span, &text) {
         (Some(span), Some(text)) => text
             .lines()
@@ -191,6 +187,7 @@ mod tests {
     use crate::model::Span;
     use crate::store::MemStore;
     use crate::testutil::fixture_repo;
+    use std::fs;
 
     fn model(root: &Path) -> Model {
         let theme = load_theme(Some("base16-ocean.dark")).unwrap();
