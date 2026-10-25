@@ -10,7 +10,7 @@ use crossterm::event::{
     KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
 };
 use tuirealm::application::{Application, PollStrategy};
-use tuirealm::event::NoUserEvent;
+use tuirealm::event::{KeyModifiers, MouseEventKind, NoUserEvent};
 use tuirealm::listener::EventListenerCfg;
 use tuirealm::props::{
     AttrValue, Attribute, HorizontalAlignment, PropBound, PropPayload, PropValue, Title,
@@ -18,13 +18,14 @@ use tuirealm::props::{
 use tuirealm::ratatui::Frame;
 use tuirealm::ratatui::text::Text;
 use tuirealm::ratatui::widgets::Clear;
+use tuirealm::subscription::{EventClause, MouseEventClause, Sub, SubClause};
 use tuirealm::terminal::{CrosstermTerminalAdapter, TerminalAdapter};
 
 use super::{Id, Model, Msg, Popup, layout};
 use crate::components::code_view::CodeView;
 use crate::components::confirm::{self, Confirm};
 use crate::components::diff_view::DiffFiles;
-use crate::components::file_tree::{FileTree, MARKED, build_tree};
+use crate::components::file_tree::{FileTree, MARKED, VISIBLE, build_tree};
 use crate::components::finder_popup::{self, PickerResults, QueryInput};
 use crate::components::help_popup::{self, HelpPopup};
 use crate::components::name_input::NameInput;
@@ -145,7 +146,15 @@ fn mount(root: &Path, listener: EventListenerCfg<NoUserEvent>) -> Result<App> {
         .file_name()
         .map_or(String::new(), |n| n.to_string_lossy().into_owned());
     let tree = build_tree(&name, &walk(root));
-    app.mount(Id::FileTree, Box::new(FileTree::new(tree)), vec![])?;
+    // The tree takes clicks and the wheel even without focus.
+    let anywhere = MouseEventClause {
+        kind: MouseEventKind::Moved,
+        modifiers: KeyModifiers::NONE,
+        column: 0..u16::MAX,
+        row: 0..u16::MAX,
+    };
+    let mouse = Sub::new(EventClause::Mouse(anywhere), SubClause::Always);
+    app.mount(Id::FileTree, Box::new(FileTree::new(tree)), vec![mouse])?;
     app.mount(Id::CodeView, Box::new(CodeView::default()), vec![])?;
     app.mount(Id::SessionView, Box::new(SessionView::default()), vec![])?;
     app.mount(Id::DiffFiles, Box::new(DiffFiles::default()), vec![])?;
@@ -239,6 +248,12 @@ fn sync(model: &mut Model, app: &mut App, opened: Option<Popup>, shift_enter: bo
         app.attr(&Id::NoteHeader, Attribute::Value, any(header))?;
     }
     app.attr(&Id::CodeView, Attribute::Value, any(model.code_props()))?;
+    let tree_shown = model.view == View::Files && model.popup.is_none();
+    app.attr(
+        &Id::FileTree,
+        Attribute::Custom(VISIBLE),
+        AttrValue::Flag(tree_shown),
+    )?;
     let marked: BTreeSet<String> = model
         .active_session()
         .map(|s| {

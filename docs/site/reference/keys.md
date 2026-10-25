@@ -90,3 +90,5 @@ In the session picker (:kbd[Ctrl+O]), :kbd[j] / :kbd[k] or the arrows move and :
 | Click in the code           | Place the cursor                                    |
 | Drag in the code            | Select characters                                   |
 | Click in the diff file list | Show that file                                      |
+| Click in the file tree      | Open a file, open or close a folder                 |
+| Wheel over the file tree    | Move through the tree                               |

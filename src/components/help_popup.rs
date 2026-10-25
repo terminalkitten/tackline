@@ -26,7 +26,7 @@ const KEYS: &[(&str, &str)] = &[
     ("0 / $", "Line start / end"),
     (":<n>", "Go to line n"),
     ("w", "Wrap long lines on / off"),
-    ("Mouse", "Click: cursor · drag: select · wheel"),
+    ("Mouse", "Click: cursor / open in tree · drag · wheel"),
     ("v / V", "Select chars / lines (again: stop)"),
     ("Shift+arrows", "Select lines (↑↓) or chars (←→)"),
     ("c", "Note the selection or line (or open its note)"),

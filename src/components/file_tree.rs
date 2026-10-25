@@ -4,10 +4,12 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use tui_realm_treeview::{Node, TREE_CMD_CLOSE, TREE_CMD_OPEN, Tree, TreeView};
+use tui_realm_treeview::{
+    Node, TREE_CMD_CLOSE, TREE_CMD_OPEN, TREE_INITIAL_NODE, Tree, TreeState, TreeView,
+};
 use tuirealm::command::{Cmd, CmdResult, Direction};
 use tuirealm::component::{AppComponent, Component};
-use tuirealm::event::{Event, Key, NoUserEvent};
+use tuirealm::event::{Event, Key, MouseButton, MouseEvent, MouseEventKind, NoUserEvent};
 use tuirealm::props::{
     AttrValue, Attribute, HorizontalAlignment, PropPayload, PropValue, QueryResult, Style, Title,
 };
@@ -61,14 +63,23 @@ pub fn build_tree(root_name: &str, entries: &[(PathBuf, bool)]) -> Tree<String> 
 pub const MARKED: &str = "marked";
 const MARKER: &str = " ●";
 
+/// Attribute: whether the tree is on screen (only then does it take clicks).
+pub const VISIBLE: &str = "visible";
+
 pub struct FileTree {
     component: TreeView<String>,
     marked: Vec<String>,
+    /// Where the tree was last drawn, for mapping clicks to rows.
+    area: Option<Rect>,
+    visible: bool,
+    /// Has focus (tuirealm sets `Attribute::Focus`).
+    focused: bool,
 }
 
 /// Everything goes to the tree view, except `MARKED`, which relabels files.
 impl Component for FileTree {
     fn view(&mut self, frame: &mut Frame, area: Rect) {
+        self.area = Some(area);
         self.component.view(frame, area);
     }
 
@@ -77,6 +88,13 @@ impl Component for FileTree {
     }
 
     fn attr(&mut self, attr: Attribute, value: AttrValue) {
+        if attr == Attribute::Custom(VISIBLE) {
+            self.visible = matches!(value, AttrValue::Flag(true));
+            return;
+        }
+        if attr == Attribute::Focus {
+            self.focused = matches!(value, AttrValue::Flag(true));
+        }
         if attr != Attribute::Custom(MARKED) {
             return self.component.attr(attr, value);
         }
@@ -134,6 +152,78 @@ impl FileTree {
         Self {
             component,
             marked: Vec::new(),
+            area: None,
+            visible: true,
+            focused: false,
+        }
+    }
+
+    /// Node ids in the order they're drawn: open folders show their children.
+    fn rows(&self) -> Vec<String> {
+        fn visit(node: &Node<String>, state: &TreeState, out: &mut Vec<String>) {
+            out.push(node.id().clone());
+            if !state.is_closed(node) {
+                node.iter().for_each(|child| visit(child, state, out));
+            }
+        }
+        let mut out = Vec::new();
+        visit(
+            self.component.tree().root(),
+            self.component.tree_state(),
+            &mut out,
+        );
+        out
+    }
+
+    /// The node drawn at screen row `y`, using the tree view's own scroll
+    /// rule (the selected row sits mid-way, within bounds).
+    fn node_at(&self, y: u16) -> Option<String> {
+        let inner = self
+            .area?
+            .inner(tuirealm::ratatui::layout::Margin::new(1, 1));
+        if y < inner.y || y >= inner.bottom() {
+            return None;
+        }
+        let rows = self.rows();
+        let height = inner.height as usize;
+        let selected = self.component.tree_state().selected();
+        let selected = rows
+            .iter()
+            .position(|id| Some(id.as_str()) == selected)
+            .map_or(0, |i| i + 1);
+        let skip = selected
+            .saturating_sub(height / 2)
+            .min(rows.len().saturating_sub(height));
+        rows.get(skip + (y - inner.y) as usize).cloned()
+    }
+
+    /// Mouse on the tree: click selects and opens, the wheel moves.
+    fn mouse(&mut self, ev: &MouseEvent) -> Option<Msg> {
+        let area = self.area?;
+        if !self.visible
+            || !area.contains(tuirealm::ratatui::layout::Position::new(ev.column, ev.row))
+        {
+            return None;
+        }
+        match ev.kind {
+            MouseEventKind::Down(MouseButton::Left) => {
+                let id = self.node_at(ev.row)?;
+                self.component
+                    .attr(Attribute::Custom(TREE_INITIAL_NODE), AttrValue::String(id));
+                self.enter()
+            }
+            MouseEventKind::ScrollDown | MouseEventKind::ScrollUp => {
+                let dir = if ev.kind == MouseEventKind::ScrollDown {
+                    Direction::Down
+                } else {
+                    Direction::Up
+                };
+                (0..3).for_each(|_| {
+                    self.component.perform(Cmd::Move(dir));
+                });
+                Some(Msg::Redraw)
+            }
+            _ => None,
         }
     }
 
@@ -162,8 +252,14 @@ impl FileTree {
 
 impl AppComponent<Msg, NoUserEvent> for FileTree {
     fn on(&mut self, ev: &Event<NoUserEvent>) -> Option<Msg> {
-        if let Some(msg) = mouse(ev) {
-            return Some(msg);
+        if let Event::Mouse(m) = ev {
+            // On the tree: handled here. Elsewhere the model routes it, but
+            // only from here when the tree has focus; otherwise the focused
+            // pane already passed it on (the tree sees all mouse events
+            // through its subscription).
+            return self
+                .mouse(m)
+                .or_else(|| if self.focused { mouse(ev) } else { None });
         }
         let cmd = match key(ev)? {
             (Key::Down | Key::Char('j'), false) => Cmd::Move(Direction::Down),
@@ -190,6 +286,47 @@ mod tests {
 
     fn press(tree: &mut FileTree, code: Key) -> Option<Msg> {
         tree.on(&Event::Keyboard(KeyEvent::new(code, KeyModifiers::NONE)))
+    }
+
+    fn click(tree: &mut FileTree, col: u16, row: u16) -> Option<Msg> {
+        tree.on(&Event::Mouse(MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            modifiers: tuirealm::event::KeyModifiers::NONE,
+            column: col,
+            row,
+        }))
+    }
+
+    #[test]
+    fn click_opens_folders_and_files() {
+        let repo = crate::testutil::fixture_repo();
+        let mut tree = FileTree::new(build_tree("repo", &crate::search::files::walk(repo.path())));
+        // Drawn at 0,0 (30x8): border on row 0, then repo/, scripts/, src/, web/.
+        render_to_string(&mut tree, Size::new(30, 8));
+        assert_eq!(click(&mut tree, 6, 3), Some(Msg::Redraw), "src/ opens");
+        render_to_string(&mut tree, Size::new(30, 8));
+        assert_eq!(
+            click(&mut tree, 8, 4),
+            Some(Msg::OpenFile("src/matcher.rs".into()))
+        );
+        assert_eq!(
+            click(&mut tree, 6, 3),
+            Some(Msg::Redraw),
+            "src/ closes again"
+        );
+        render_to_string(&mut tree, Size::new(30, 8));
+        assert_eq!(click(&mut tree, 6, 6), None, "below the last row: nothing");
+
+        // Outside the tree: passed on only when the tree has focus.
+        assert_eq!(click(&mut tree, 50, 3), None);
+        tree.attr(Attribute::Focus, AttrValue::Flag(true));
+        assert_eq!(
+            click(&mut tree, 50, 3),
+            Some(Msg::Click { col: 50, row: 3 })
+        );
+        // Not on screen (another view or a popup): no clicks.
+        tree.attr(Attribute::Custom(VISIBLE), AttrValue::Flag(false));
+        assert_eq!(click(&mut tree, 6, 3), Some(Msg::Click { col: 6, row: 3 }));
     }
 
     #[test]
