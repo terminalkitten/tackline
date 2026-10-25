@@ -90,6 +90,8 @@ jobs:
   custom-draft-release:
     uses: ./.github/workflows/draft-release.yml
     secrets: inherit
+    permissions:
+      "contents": "write"
 
   # Build and packages all the platform-specific things
   build-local-artifacts:
@@ -338,8 +340,8 @@ jobs:
     secrets: inherit
     # publish jobs get escalated permissions
     permissions:
+      "contents": "read"
       "id-token": "write"
-      "packages": "write"
 
   announce:
     needs:

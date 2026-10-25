@@ -22,3 +22,5 @@ tap = "terminalkitten/homebrew-tap"
 plan-jobs = ["./draft-release"]
 publish-jobs = ["homebrew", "./publish-crates"]
 create-release = false
+# Trusted publishing needs id-token; checkout needs contents.
+github-custom-job-permissions = { "publish-crates" = { contents = "read", id-token = "write" }, "draft-release" = { contents = "write" } }
