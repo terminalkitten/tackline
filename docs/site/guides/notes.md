@@ -63,6 +63,9 @@ note's instruction, cut short with `…` when it doesn't fit:
 ╰ ● replace the loop with an iterator chain: items.iter().filter(..)… ─────╯
 ```
 
+To read the whole note, press :kbd[Enter] on a tacked line. A popup shows its location, its
+session and the full text; from there :kbd[e] edits it, :kbd[d] deletes it and :kbd[Esc] closes it.
+
 Files with notes in the active session get a `●` in the file tree.
 
 ## Edit a note

@@ -28,7 +28,7 @@ use crate::components::file_tree::{FileTree, MARKED, build_tree};
 use crate::components::finder_popup::{self, PickerResults, QueryInput};
 use crate::components::help_popup::{self, HelpPopup};
 use crate::components::name_input::NameInput;
-use crate::components::note_popup::{self, NoteHeader, NoteText};
+use crate::components::note_popup::{self, NoteHeader, NoteText, NoteViewer};
 use crate::components::session_picker::{self, SessionPicker};
 use crate::components::session_view::SessionView;
 use crate::components::status_bar::{self, StatusBar};
@@ -167,6 +167,7 @@ fn mount(root: &Path, listener: EventListenerCfg<NoUserEvent>) -> Result<App> {
         vec![],
     )?;
     app.mount(Id::Confirm, Box::new(Confirm::default()), vec![])?;
+    app.mount(Id::NoteViewer, Box::new(NoteViewer::default()), vec![])?;
     Ok(app)
 }
 
@@ -230,6 +231,9 @@ fn sync(model: &mut Model, app: &mut App, opened: Option<Popup>, shift_enter: bo
     }
     if let Some(results) = model.picker_props() {
         app.attr(&Id::PickerResults, Attribute::Value, any(results))?;
+    }
+    if let Some(view) = model.note_view_props() {
+        app.attr(&Id::NoteViewer, Attribute::Value, any(view))?;
     }
     if let Some(header) = model.note_header() {
         app.attr(&Id::NoteHeader, Attribute::Value, any(header))?;
@@ -318,6 +322,12 @@ fn draw(app: &mut App, model: &Model, f: &mut Frame) {
         Some(Popup::FindInFile | Popup::GotoLine) => {
             Some((Id::QueryInput, finder_popup::find_area(areas.code)))
         }
+        Some(Popup::ViewNote) => model.note_view_props().map(|v| {
+            (
+                Id::NoteViewer,
+                note_popup::viewer_area(screen, v.rows.len()),
+            )
+        }),
         Some(Popup::Note | Popup::Finder | Popup::Search) | None => None,
     };
     if let Some((id, area)) = popup {
@@ -451,6 +461,10 @@ mod tests {
         m.update(Msg::SaveNote("use an iterator chain".into()));
         m.update(Msg::DismissToast);
         insta::assert_snapshot!("frame_gutter_markers", frame(&mut m, None));
+
+        m.update(Msg::ViewNote);
+        insta::assert_snapshot!("frame_view_note", frame(&mut m, None));
+        m.update(Msg::ClosePopup);
 
         m.update(Msg::ShowView(View::Session));
         m.update(Msg::AskDeleteNote);

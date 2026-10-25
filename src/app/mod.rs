@@ -50,6 +50,7 @@ pub enum Id {
     Confirm,
     QueryInput,
     PickerResults,
+    NoteViewer,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -61,6 +62,8 @@ pub enum Popup {
     ConfirmDelete,
     /// First run: offer to ignore `.tackline/`.
     Gitignore,
+    /// Enter on a noted line: the full note.
+    ViewNote,
     /// Ctrl+P
     Finder,
     /// Ctrl+F
@@ -145,6 +148,8 @@ pub enum Msg {
     /// Session view: `e`, `d` (asks), confirmed delete, `J` / `K`.
     EditNote,
     AskDeleteNote,
+    /// Enter on a noted line: show the whole note.
+    ViewNote,
     DeleteNote,
     /// Answer to a yes/no popup.
     Confirm(bool),
@@ -359,6 +364,7 @@ impl Model {
             (Some(Popup::SessionPicker), ..) => Id::SessionPicker,
             (Some(Popup::Note), ..) => Id::NoteText,
             (Some(Popup::ConfirmDelete | Popup::Gitignore), ..) => Id::Confirm,
+            (Some(Popup::ViewNote), ..) => Id::NoteViewer,
             (Some(Popup::Finder | Popup::Search | Popup::FindInFile | Popup::GotoLine), ..) => {
                 Id::QueryInput
             }
@@ -434,6 +440,7 @@ impl Model {
             Msg::SaveNote(text) => self.save_note(&text),
             Msg::EditNote => self.edit_note(),
             Msg::AskDeleteNote => self.ask_delete_note(),
+            Msg::ViewNote => self.view_note(),
             Msg::DeleteNote => self.delete_note(),
             Msg::Confirm(yes) => match self.popup.take() {
                 Some(Popup::ConfirmDelete) if yes => self.delete_note(),

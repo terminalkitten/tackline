@@ -66,6 +66,93 @@ pub fn header(
     }
 }
 
+/// Width of the note viewer.
+pub fn viewer_width(screen: Rect) -> u16 {
+    76.min(screen.width.saturating_sub(4))
+}
+
+pub fn viewer_area(screen: Rect, rows: usize) -> Rect {
+    let height = (rows as u16 + 2).min(screen.height.saturating_sub(2));
+    centered(screen, viewer_width(screen), height)
+}
+
+/// Rows of the note viewer: where, which session, the text wrapped to
+/// `width`, and the keys.
+pub fn viewer(location: &str, session: &str, text: &str, stale: bool, width: usize) -> CodeProps {
+    let dim = Style::new().fg(Color::DarkGray);
+    let mut head = vec![Span::styled(
+        location.to_string(),
+        Style::new().add_modifier(Modifier::BOLD),
+    )];
+    if stale {
+        head.push(Span::styled("  ⚠ stale", Style::new().fg(Color::LightRed)));
+    }
+    let mut rows = vec![
+        Line::from(head),
+        Line::styled(format!("Session: {session}"), dim),
+        Line::default(),
+    ];
+    rows.extend(
+        text.lines()
+            .flat_map(|l| wrap(l, width))
+            .map(|l| Line::from(format!(" {l}"))),
+    );
+    rows.push(Line::default());
+    rows.push(Line::styled("e edit · d delete · Esc close", dim));
+    CodeProps {
+        title: "Note".to_string(),
+        rows,
+        focused: true,
+        scroll: 0,
+        footer: None,
+    }
+}
+
+/// Word-wrap `line` to `width` chars; words longer than that are split.
+fn wrap(line: &str, width: usize) -> Vec<String> {
+    let width = width.max(1);
+    let mut out: Vec<String> = Vec::new();
+    let mut current = String::new();
+    for word in line.split_whitespace() {
+        let mut word = word.to_string();
+        while word.chars().count() > width {
+            if !current.is_empty() {
+                out.push(std::mem::take(&mut current));
+            }
+            let head: String = word.chars().take(width).collect();
+            word = word.chars().skip(width).collect();
+            out.push(head);
+        }
+        let fits = current.chars().count() + 1 + word.chars().count() <= width;
+        if current.is_empty() {
+            current = word;
+        } else if fits {
+            current.push(' ');
+            current.push_str(&word);
+        } else {
+            out.push(std::mem::replace(&mut current, word));
+        }
+    }
+    out.push(current);
+    out
+}
+
+#[derive(Component, Default)]
+pub struct NoteViewer {
+    component: Rows,
+}
+
+impl AppComponent<Msg, NoUserEvent> for NoteViewer {
+    fn on(&mut self, ev: &Event<NoUserEvent>) -> Option<Msg> {
+        match key(ev)? {
+            (Key::Esc | Key::Enter | Key::Char('q'), _) => Some(Msg::ClosePopup),
+            (Key::Char('e') | Key::Char('c'), false) => Some(Msg::EditNote),
+            (Key::Char('d'), false) => Some(Msg::AskDeleteNote),
+            _ => None,
+        }
+    }
+}
+
 /// Header and text box areas.
 pub fn areas(screen: Rect, header_rows: usize) -> (Rect, Rect) {
     let height = header_rows as u16 + 2 + TEXT_HEIGHT;
@@ -240,6 +327,13 @@ mod tests {
             press(&mut text, Key::Enter, KeyModifiers::NONE),
             Some(Msg::SaveNote("one\ntwo \\ x".into()))
         );
+    }
+
+    #[test]
+    fn wraps_words() {
+        assert_eq!(wrap("one two three four", 9), ["one two", "three", "four"]);
+        assert_eq!(wrap("abcdefghij x", 4), ["abcd", "efgh", "ij x"]);
+        assert_eq!(wrap("", 10), [""]);
     }
 
     #[test]

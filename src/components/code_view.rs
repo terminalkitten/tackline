@@ -413,6 +413,7 @@ impl AppComponent<Msg, NoUserEvent> for CodeView {
             (Key::Esc, _) => return Some(Msg::ClearSelection),
             (Key::Char('c'), false) => return Some(Msg::AddNote),
             (Key::Char('d'), false) => return Some(Msg::AskDeleteNote),
+            (Key::Enter, false) => return Some(Msg::ViewNote),
             (Key::Char('r'), false) => return Some(Msg::RefreshDiff),
             (Key::Char('w'), false) => return Some(Msg::ToggleWrap),
             (Key::Char(':'), false) => return Some(Msg::OpenPopup(Popup::GotoLine)),

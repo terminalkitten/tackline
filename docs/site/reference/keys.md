@@ -46,6 +46,7 @@ so tackline never uses them. Press :kbd[?] in the app for a quick list.
 | :kbd[Esc]                                                 | Clear the selection                                             |
 | :kbd[c]                                                   | Note the selection or the line; on a noted line, edit that note |
 | :kbd[d]                                                   | Delete the note on this line (asks first)                       |
+| :kbd[Enter]                                               | Show the whole note on this line                                |
 | :kbd[r]                                                   | Diff view: reload the diff                                      |
 | :kbd[Tab]                                                 | Switch to the tree or file list                                 |
 

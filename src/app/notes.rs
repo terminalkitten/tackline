@@ -251,6 +251,37 @@ impl Model {
         Some(format!("{}…", cut.trim_end()))
     }
 
+    /// Enter: show the note under the cursor in full.
+    pub(super) fn view_note(&mut self) {
+        let line = self.cursor.line;
+        let Some(mark) = self
+            .marks
+            .iter()
+            .find(|m| (m.start..=m.end).contains(&line))
+        else {
+            return self.toast(ToastKind::Warning, "No note on this line (c adds one)");
+        };
+        self.note_cursor = mark.note;
+        self.resolve_notes();
+        self.popup = Some(Popup::ViewNote);
+    }
+
+    /// The note viewer: location, session and the full text, wrapped.
+    pub fn note_view_props(&self) -> Option<CodeProps> {
+        let session = self.active_session()?;
+        let note = session.notes.get(self.note_cursor)?;
+        let row = self.notes.get(self.note_cursor)?;
+        let screen = tuirealm::ratatui::layout::Rect::new(0, 0, self.size.0, self.size.1);
+        let width = note_popup::viewer_width(screen).saturating_sub(4) as usize;
+        Some(note_popup::viewer(
+            &row.location,
+            &session.name,
+            &note.text,
+            row.stale,
+            width,
+        ))
+    }
+
     /// The note popup's header.
     pub fn note_header(&self) -> Option<CodeProps> {
         let draft = self.draft.as_ref()?;
@@ -652,6 +683,56 @@ mod tests {
             m.code_props().footer.as_deref(),
             Some("replace the loop with an iterator chain")
         );
+    }
+
+    #[test]
+    fn enter_views_the_whole_note() {
+        let repo = fixture_repo();
+        let mut m = model(repo.path());
+        m.update(Msg::NewSession("S".into()));
+        m.update(Msg::OpenFile("src/matcher.rs".into()));
+        m.update(Msg::ViewNote);
+        assert_eq!(m.popup, None);
+        assert!(
+            m.toast
+                .as_ref()
+                .unwrap()
+                .text
+                .starts_with("No note on this line")
+        );
+
+        let text = "replace the loop with an iterator chain and keep the order of items stable";
+        press(
+            &mut m,
+            &[
+                Msg::Move(Motion::Down),
+                Msg::AddNote,
+                Msg::SaveNote(text.into()),
+            ],
+        );
+        m.update(Msg::ViewNote);
+        assert_eq!(m.popup, Some(Popup::ViewNote));
+        let view = m.note_view_props().unwrap();
+        let rows: Vec<String> = view.rows.iter().map(|r| r.to_string()).collect();
+        assert_eq!(rows[0], "src/matcher.rs:L2");
+        assert_eq!(rows[1], "Session: S");
+        // The full text, wrapped, nothing cut off.
+        let body: String = rows[3..rows.len() - 2]
+            .iter()
+            .map(|r| r.trim())
+            .collect::<Vec<_>>()
+            .join(" ");
+        assert_eq!(body, text);
+
+        // e edits the same note; d asks to delete it.
+        m.update(Msg::EditNote);
+        assert_eq!(m.popup, Some(Popup::Note));
+        assert_eq!(m.draft.as_ref().unwrap().text, text);
+        press(
+            &mut m,
+            &[Msg::ClosePopup, Msg::ViewNote, Msg::AskDeleteNote],
+        );
+        assert_eq!(m.popup, Some(Popup::ConfirmDelete));
     }
 
     #[test]
