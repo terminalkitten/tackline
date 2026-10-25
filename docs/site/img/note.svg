@@ -291,7 +291,7 @@
 <text x="112.80000000000001" y="80" fill="#c0c5ce">.</text>
 <text x="121.2" y="80" fill="#c0c5ce">p</text>
 <text x="129.60000000000002" y="80" fill="#c0c5ce">y</text>
-<text x="146.4" y="80" fill="#c0c5ce">●</text>
+<text x="146.4" y="80" fill="#ebcb8b">●</text>
 <text x="272.40000000000003" y="80" fill="#c0c5ce">│</text>
 <text x="280.8" y="80" fill="#65737e">│</text>
 <rect x="289.2" y="66" width="8.8" height="18" fill="#4f5b66"/>
@@ -525,8 +525,8 @@
 <text x="138" y="116" fill="#2b303b" font-weight="bold">r</text>
 <rect x="146.4" y="102" width="8.8" height="18" fill="#c0c5ce"/>
 <text x="146.4" y="116" fill="#2b303b" font-weight="bold">s</text>
-<rect x="154.8" y="102" width="8.8" height="18" fill="#c0c5ce"/>
-<rect x="163.20000000000002" y="102" width="8.8" height="18" fill="#c0c5ce"/>
+<rect x="154.8" y="102" width="8.8" height="18" fill="#ebcb8b"/>
+<rect x="163.20000000000002" y="102" width="8.8" height="18" fill="#ebcb8b"/>
 <text x="163.20000000000002" y="116" fill="#2b303b" font-weight="bold">●</text>
 <rect x="171.6" y="102" width="8.8" height="18" fill="#c0c5ce"/>
 <rect x="180" y="102" width="8.8" height="18" fill="#c0c5ce"/>

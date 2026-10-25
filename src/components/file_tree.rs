@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use tui_realm_treeview::{
-    Node, TREE_CMD_CLOSE, TREE_CMD_OPEN, TREE_INITIAL_NODE, Tree, TreeState, TreeView,
+    Node, NodeValue, TREE_CMD_CLOSE, TREE_CMD_OPEN, TREE_INITIAL_NODE, Tree, TreeState, TreeView,
 };
 use tuirealm::command::{Cmd, CmdResult, Direction};
 use tuirealm::component::{AppComponent, Component};
@@ -15,7 +15,7 @@ use tuirealm::props::{
 };
 use tuirealm::ratatui::Frame;
 use tuirealm::ratatui::layout::Rect;
-use tuirealm::ratatui::style::Modifier;
+use tuirealm::ratatui::style::{Color, Modifier};
 use tuirealm::state::{State, StateValue};
 
 use super::{borders, global_key, key, mouse};
@@ -26,7 +26,31 @@ pub const ROOT: &str = "/";
 
 /// Build the tree from `walk` output. Ids are relative paths, with a trailing
 /// `/` for directories; directories sort before files.
-pub fn build_tree(root_name: &str, entries: &[(PathBuf, bool)]) -> Tree<String> {
+/// A tree row: the name, and a yellow `●` when the file has notes. The
+/// name has no style of its own, so it keeps the row's (selection) style.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Label {
+    pub name: String,
+    pub marked: bool,
+}
+
+impl Label {
+    fn new(name: String) -> Self {
+        Self {
+            name,
+            marked: false,
+        }
+    }
+}
+
+impl NodeValue for Label {
+    fn render_parts_iter(&self) -> impl Iterator<Item = (&str, Option<Style>)> {
+        let marker = (" ●", Some(Style::new().fg(Color::Yellow)));
+        std::iter::once((self.name.as_str(), None)).chain(self.marked.then_some(marker))
+    }
+}
+
+pub fn build_tree(root_name: &str, entries: &[(PathBuf, bool)]) -> Tree<Label> {
     let mut children: BTreeMap<&Path, Vec<(&Path, bool)>> = BTreeMap::new();
     for (path, is_dir) in entries {
         children
@@ -38,12 +62,12 @@ pub fn build_tree(root_name: &str, entries: &[(PathBuf, bool)]) -> Tree<String> 
         path: &Path,
         is_dir: bool,
         children: &BTreeMap<&Path, Vec<(&Path, bool)>>,
-    ) -> Node<String> {
+    ) -> Node<Label> {
         let name = path
             .file_name()
             .map_or(String::new(), |n| n.to_string_lossy().into_owned());
         if !is_dir {
-            return Node::new(path.display().to_string(), name);
+            return Node::new(path.display().to_string(), Label::new(name));
         }
         let mut kids = children.get(path).cloned().unwrap_or_default();
         kids.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(b.0)));
@@ -51,23 +75,26 @@ pub fn build_tree(root_name: &str, entries: &[(PathBuf, bool)]) -> Tree<String> 
             .into_iter()
             .map(|(p, d)| node(p, d, children))
             .collect();
-        Node::new(format!("{}/", path.display()), format!("{name}/")).with_children(kids)
+        Node::new(
+            format!("{}/", path.display()),
+            Label::new(format!("{name}/")),
+        )
+        .with_children(kids)
     }
     // The root's id comes out as `ROOT`; show the repo's folder name.
     let mut root = node(Path::new(""), true, &children);
-    root.set_value(format!("{root_name}/"));
+    root.set_value(Label::new(format!("{root_name}/")));
     Tree::new(root)
 }
 
 /// Attribute with the ids of files to mark (`PropPayload::Vec` of `Str`).
 pub const MARKED: &str = "marked";
-const MARKER: &str = " ●";
 
 /// Attribute: whether the tree is on screen (only then does it take clicks).
 pub const VISIBLE: &str = "visible";
 
 pub struct FileTree {
-    component: TreeView<String>,
+    component: TreeView<Label>,
     marked: Vec<String>,
     /// Where the tree was last drawn, for mapping clicks to rows.
     area: Option<Rect>,
@@ -112,16 +139,15 @@ impl Component for FileTree {
             return;
         }
         let root = self.component.tree_mut().root_mut();
-        for id in &self.marked {
-            if let Some(node) = root.query_mut(id) {
-                let name = node.value().trim_end_matches(MARKER).to_string();
-                node.set_value(name);
-            }
-        }
-        for id in &marked {
-            if let Some(node) = root.query_mut(id) {
-                let name = format!("{}{MARKER}", node.value());
-                node.set_value(name);
+        for (ids, on) in [(&self.marked, false), (&marked, true)] {
+            for id in ids {
+                if let Some(node) = root.query_mut(id) {
+                    let label = Label {
+                        marked: on,
+                        ..node.value().clone()
+                    };
+                    node.set_value(label);
+                }
             }
         }
         self.marked = marked;
@@ -137,7 +163,7 @@ impl Component for FileTree {
 }
 
 impl FileTree {
-    pub fn new(tree: Tree<String>) -> Self {
+    pub fn new(tree: Tree<Label>) -> Self {
         let mut component = TreeView::default()
             .borders(borders(true))
             .inactive(Style::new())
@@ -160,7 +186,7 @@ impl FileTree {
 
     /// Node ids in the order they're drawn: open folders show their children.
     fn rows(&self) -> Vec<String> {
-        fn visit(node: &Node<String>, state: &TreeState, out: &mut Vec<String>) {
+        fn visit(node: &Node<Label>, state: &TreeState, out: &mut Vec<String>) {
             out.push(node.id().clone());
             if !state.is_closed(node) {
                 node.iter().for_each(|child| visit(child, state, out));
@@ -286,6 +312,24 @@ mod tests {
 
     fn press(tree: &mut FileTree, code: Key) -> Option<Msg> {
         tree.on(&Event::Keyboard(KeyEvent::new(code, KeyModifiers::NONE)))
+    }
+
+    #[test]
+    fn marker_is_yellow_and_the_name_keeps_the_row_style() {
+        let label = Label {
+            name: "matcher.rs".into(),
+            marked: true,
+        };
+        let parts: Vec<_> = label.render_parts_iter().collect();
+        assert_eq!(
+            parts,
+            [
+                ("matcher.rs", None),
+                (" ●", Some(Style::new().fg(Color::Yellow)))
+            ]
+        );
+        let plain = Label::new("x.rs".into());
+        assert_eq!(plain.render_parts_iter().count(), 1);
     }
 
     fn click(tree: &mut FileTree, col: u16, row: u16) -> Option<Msg> {
