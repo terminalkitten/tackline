@@ -2,6 +2,7 @@
 
 pub mod code_view;
 pub mod file_tree;
+pub mod finder_popup;
 pub mod help_popup;
 pub mod name_input;
 pub mod note_popup;
@@ -34,6 +35,8 @@ pub fn global_key(ev: &Event<NoUserEvent>) -> Option<Msg> {
         (Key::Char('?'), false) => Some(Msg::OpenPopup(Popup::Help)),
         (Key::Char('n'), true) => Some(Msg::OpenPopup(Popup::NewSession)),
         (Key::Char('o'), true) => Some(Msg::OpenPopup(Popup::SessionPicker)),
+        (Key::Char('p'), true) => Some(Msg::OpenPopup(Popup::Finder)),
+        (Key::Char('f'), true) => Some(Msg::OpenPopup(Popup::Search)),
         (Key::Char('q'), false) => Some(Msg::Quit),
         _ => None,
     }

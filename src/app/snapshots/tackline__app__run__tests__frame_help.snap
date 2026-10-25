@@ -6,13 +6,13 @@ expression: "frame(&mut m, None)"
 │  repo/│ 1 / 2 / 3       Files / Diff / Session view                   │[Strin│
 │    scr│ Ctrl+N          New session                                   │      │
 │    src│ Ctrl+O          Pick the active session                       │      │
-│    web│ Tab             Switch tree ↔ code                            │      │
+│    web│ Ctrl+P          Find a file                                   │      │
+│       │ Ctrl+F          Search code in the repo                       │      │
+│       │ /  n / N        Search this file, next / previous             │      │
+│       │ Tab             Switch tree ↔ code                            │      │
 │       │ j k ↑ ↓         Move down / up                                │      │
 │       │ h l ← →         Tree: close / open · Code: column             │      │
 │       │ Enter           Open file / toggle directory                  │      │
 │       │ gg / G          Top / bottom                                  │      │
-│       │ Ctrl+D / Ctrl+U Half page down / up                           │      │
-│       │ 0 / $           Line start / end                              │      │
-│       │ v / V           Select chars / lines (again: stop)            │      │
-╰───────│ Shift+arrows    Select lines (↑↓) or chars (←→)               │──────╯
+╰───────│ Ctrl+D / Ctrl+U Half page down / up                           │──────╯
  FILES  ╰───────────────────────────────────────────────────────────────╯

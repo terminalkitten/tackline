@@ -17,6 +17,7 @@ use tuirealm::terminal::{CrosstermTerminalAdapter, TerminalAdapter};
 use super::{Id, Model, Msg, Popup, layout};
 use crate::components::code_view::CodeView;
 use crate::components::file_tree::{FileTree, MARKED, build_tree};
+use crate::components::finder_popup::{self, PickerResults, QueryInput};
 use crate::components::help_popup::{self, HelpPopup};
 use crate::components::name_input::NameInput;
 use crate::components::note_popup::{self, ConfirmDelete, NoteHeader, NoteText};
@@ -116,6 +117,12 @@ fn mount(root: &Path, listener: EventListenerCfg<NoUserEvent>) -> Result<App> {
     app.mount(Id::Toast, Box::new(Toast::default()), vec![])?;
     app.mount(Id::NoteHeader, Box::new(NoteHeader::default()), vec![])?;
     app.mount(Id::NoteText, Box::new(NoteText::new("")), vec![])?;
+    app.mount(Id::QueryInput, Box::new(QueryInput::default()), vec![])?;
+    app.mount(
+        Id::PickerResults,
+        Box::new(PickerResults::default()),
+        vec![],
+    )?;
     app.mount(
         Id::ConfirmDelete,
         Box::new(ConfirmDelete::default()),
@@ -158,7 +165,23 @@ fn sync(model: &mut Model, app: &mut App, opened: Option<Popup>) -> Result<()> {
             let text = model.draft.as_ref().map_or("", |d| d.text.as_str());
             app.remount(Id::NoteText, Box::new(NoteText::new(text)), vec![])?;
         }
+        Some(Popup::Finder | Popup::Search | Popup::FindInFile) => {
+            let kind = model.picker.as_ref().map(|p| p.kind);
+            app.attr(
+                &Id::QueryInput,
+                Attribute::Value,
+                AttrValue::String(String::new()),
+            )?;
+            app.attr(
+                &Id::QueryInput,
+                Attribute::Title,
+                AttrValue::Title(finder_popup::title_attr(kind)),
+            )?;
+        }
         _ => {}
+    }
+    if let Some(results) = model.picker_props() {
+        app.attr(&Id::PickerResults, Attribute::Value, any(results))?;
     }
     if let Some(header) = model.note_header() {
         app.attr(&Id::NoteHeader, Attribute::Value, any(header))?;
@@ -243,11 +266,18 @@ fn draw(app: &mut App, model: &Model, f: &mut Frame) {
         Some(Popup::ConfirmDelete) => {
             Some((Id::ConfirmDelete, centered(screen, 40.min(screen.width), 3)))
         }
-        Some(Popup::Note) | None => None,
+        Some(Popup::FindInFile) => Some((Id::QueryInput, finder_popup::find_area(areas.code))),
+        Some(Popup::Note | Popup::Finder | Popup::Search) | None => None,
     };
     if let Some((id, area)) = popup {
         f.render_widget(Clear, area);
         app.view(&id, f, area);
+    }
+    if let Some(Popup::Finder | Popup::Search) = model.popup {
+        let (input, results) = finder_popup::areas(screen);
+        f.render_widget(Clear, input.union(results));
+        app.view(&Id::QueryInput, f, input);
+        app.view(&Id::PickerResults, f, results);
     }
     if let (Some(Popup::Note), Some(header)) = (model.popup, model.note_header()) {
         let (head, text) = note_popup::areas(screen, header.rows.len());
@@ -352,5 +382,25 @@ mod tests {
         m.update(Msg::ShowView(View::Session));
         m.update(Msg::AskDeleteNote);
         insta::assert_snapshot!("frame_confirm_delete", frame(&mut m, None));
+    }
+
+    #[test]
+    fn search_frames() {
+        let repo = crate::testutil::fixture_repo();
+        let mut m = model(repo.path());
+        m.update(Msg::OpenPopup(Popup::Finder));
+        m.update(Msg::QueryChanged("web".into()));
+        insta::assert_snapshot!("frame_finder", frame(&mut m, Some(Popup::Finder)));
+
+        m.update(Msg::ClosePopup);
+        m.update(Msg::OpenPopup(Popup::Search));
+        m.update(Msg::QueryEnter("item".into()));
+        m.update(Msg::PickerMove(2));
+        insta::assert_snapshot!("frame_search", frame(&mut m, Some(Popup::Search)));
+
+        m.update(Msg::ClosePopup);
+        m.update(Msg::OpenFile("src/matcher.rs".into()));
+        m.update(Msg::OpenPopup(Popup::FindInFile));
+        insta::assert_snapshot!("frame_find_in_file", frame(&mut m, Some(Popup::FindInFile)));
     }
 }

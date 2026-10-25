@@ -1,0 +1,18 @@
+---
+source: src/app/run.rs
+expression: "frame(&mut m, Some(Popup::Search))"
+---
+╭ Files ───────────────────────╮╭ No file ─────────────────────────────────────╮
+│ ╭ Search code (Enter searches, Enter again opens) ─────────────────────────╮ │
+│ │                                                                          │ │
+│ ╰──────────────────────────────────────────────────────────────────────────╯ │
+│ ╭ 6 ───────────────────────────────────────────────────────────────────────╮ │
+│ │src/matcher.rs:1: pub fn matches(query: &str, items: &[String]) -> Vec<Str│ │
+│ │src/matcher.rs:3: for item in items {                                     │ │
+│ │src/matcher.rs:4: if item.contains(query) {                               │ │
+│ │src/matcher.rs:5: out.push(item.clone());                                 │ │
+│ │web/app.ts:1: export function count(items: string[]): number {            │ │
+│ │web/app.ts:2: return items.length;                                        │ │
+│ │                                                                          │ │
+╰─╰──────────────────────────────────────────────────────────────────────────╯─╯
+ FILES  no session  │ ? help  q quit

@@ -14,7 +14,7 @@ use tuirealm::state::State;
 use two_face::re_exports::syntect::highlighting::Theme;
 
 use super::{global_key, key};
-use crate::app::{Motion, Msg, SelectionKind};
+use crate::app::{Motion, Msg, Popup, SelectionKind};
 use crate::highlight::color;
 
 /// What the pane shows, as set by the model.
@@ -287,6 +287,9 @@ impl AppComponent<Msg, NoUserEvent> for CodeView {
             (Key::Char('V'), false) => return Some(Msg::ToggleSelection(SelectionKind::Line)),
             (Key::Esc, _) => return Some(Msg::ClearSelection),
             (Key::Char('c'), false) => return Some(Msg::AddNote),
+            (Key::Char('/'), false) => return Some(Msg::OpenPopup(Popup::FindInFile)),
+            (Key::Char('n'), false) => return Some(Msg::FindNext),
+            (Key::Char('N'), false) => return Some(Msg::FindPrev),
             (Key::Tab | Key::BackTab, _) => return Some(Msg::ToggleFocus),
             _ => return global_key(ev),
         };

@@ -7,7 +7,7 @@ use two_face::re_exports::syntect::highlighting::Theme;
 
 use tuirealm::ratatui::layout::Rect;
 
-use super::{Cursor, Focus, Id, Model, ToastKind, layout};
+use super::{Id, Model, ToastKind, layout};
 use crate::anchor::relocate;
 use crate::compile::compile;
 use crate::components::code_view::CodeProps;
@@ -94,15 +94,9 @@ impl Model {
         let Some((file, span)) = row.jump.clone() else {
             return self.toast(ToastKind::Warning, "This note is stale: its code is gone");
         };
-        self.open(file);
-        self.view = View::Files;
-        self.focus = Focus::Code;
         let line = span.start_line as usize - 1;
         let col = span.start_col.map_or(0, |c| c as usize - 1);
-        self.cursor = Cursor { line, col };
-        // Center the target line.
-        self.top = line.saturating_sub(self.viewport().0 / 2);
-        self.scroll_to_cursor();
+        self.goto(file, line, col);
     }
 
     pub(super) fn copy_prompt(&mut self) {

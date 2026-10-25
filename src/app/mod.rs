@@ -2,6 +2,7 @@
 
 mod notes;
 mod run;
+mod search;
 mod sessions;
 
 use std::collections::HashMap;
@@ -15,6 +16,7 @@ use two_face::re_exports::syntect::highlighting::Theme;
 
 pub use notes::{Draft, Selection, SelectionKind};
 pub use run::run;
+pub use search::{Picker, PickerKind};
 
 use crate::components::code_view::{self, CodeProps, Mark};
 use crate::components::session_view::NoteRow;
@@ -44,6 +46,8 @@ pub enum Id {
     NoteHeader,
     NoteText,
     ConfirmDelete,
+    QueryInput,
+    PickerResults,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -53,6 +57,12 @@ pub enum Popup {
     SessionPicker,
     Note,
     ConfirmDelete,
+    /// Ctrl+P
+    Finder,
+    /// Ctrl+F
+    Search,
+    /// `/`
+    FindInFile,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -129,6 +139,13 @@ pub enum Msg {
     AskDeleteNote,
     DeleteNote,
     MoveNote(isize),
+    /// The search input changed / Enter was pressed in it.
+    QueryChanged(String),
+    QueryEnter(String),
+    PickerMove(isize),
+    /// `n` / `N` after `/`.
+    FindNext,
+    FindPrev,
     /// Terminal size (width, height).
     Resize(u16, u16),
     /// A component changed only its own widget state.
@@ -188,6 +205,9 @@ pub struct Model {
     pub marks: Vec<Mark>,
     /// `c` with no sessions: open the note popup once one is named.
     note_after_new_session: bool,
+    pub picker: Option<Picker>,
+    /// Last `/` query.
+    pub find: Option<String>,
     store: Box<dyn Store>,
     /// Per-file highlight caches, dropped when the file's mtime changes.
     highlights: HashMap<PathBuf, (Option<SystemTime>, Highlighted)>,
@@ -231,6 +251,8 @@ impl Model {
             draft: None,
             marks: Vec::new(),
             note_after_new_session: false,
+            picker: None,
+            find: None,
             root,
             view: View::Files,
             focus: Focus::Tree,
@@ -265,6 +287,7 @@ impl Model {
             (Some(Popup::SessionPicker), ..) => Id::SessionPicker,
             (Some(Popup::Note), ..) => Id::NoteText,
             (Some(Popup::ConfirmDelete), ..) => Id::ConfirmDelete,
+            (Some(Popup::Finder | Popup::Search | Popup::FindInFile), ..) => Id::QueryInput,
             (None, View::Files, Focus::Tree) => Id::FileTree,
             (None, View::Files, Focus::Code) => Id::CodeView,
             (None, View::Session, _) => Id::SessionView,
@@ -305,10 +328,14 @@ impl Model {
                 }
             }
             Msg::ShowView(view) => self.show_view(view),
+            Msg::OpenPopup(Popup::Finder) => self.open_picker(PickerKind::Files),
+            Msg::OpenPopup(Popup::Search) => self.open_picker(PickerKind::Code),
+            Msg::OpenPopup(Popup::FindInFile) if self.lines().is_none() => {}
             Msg::OpenPopup(popup) => self.popup = Some(popup),
             Msg::ClosePopup => {
                 self.popup = None;
                 self.draft = None;
+                self.picker = None;
                 self.note_after_new_session = false;
             }
             Msg::NewSession(name) => self.new_session(&name),
@@ -331,6 +358,11 @@ impl Model {
             Msg::AskDeleteNote => self.ask_delete_note(),
             Msg::DeleteNote => self.delete_note(),
             Msg::MoveNote(step) => self.move_note(step),
+            Msg::QueryChanged(query) => self.query_changed(query),
+            Msg::QueryEnter(query) => self.query_enter(query),
+            Msg::PickerMove(step) => self.picker_move(step),
+            Msg::FindNext => self.find_next(true),
+            Msg::FindPrev => self.find_next(false),
             Msg::Resize(w, h) => {
                 self.size = (w, h);
                 self.scroll_to_cursor();

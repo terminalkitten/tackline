@@ -18,9 +18,38 @@ pub fn walk(root: &Path) -> Vec<(PathBuf, bool)> {
         .collect()
 }
 
+/// Files matching `query` fuzzily (nucleo, path-aware, smart case), best
+/// first, at most `limit`. An empty query keeps the order of `files`.
+pub fn find(files: &[String], query: &str, limit: usize) -> Vec<String> {
+    use nucleo::pattern::{CaseMatching, Normalization, Pattern};
+    let mut matcher = nucleo::Matcher::new(nucleo::Config::DEFAULT.match_paths());
+    Pattern::parse(query, CaseMatching::Smart, Normalization::Smart)
+        .match_list(files, &mut matcher)
+        .into_iter()
+        .take(limit)
+        .map(|(file, _)| file.clone())
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn fuzzy_find() {
+        let files: Vec<String> = [
+            "src/matcher.rs",
+            "scripts/score.py",
+            "web/app.ts",
+            "web/App.vue",
+        ]
+        .map(String::from)
+        .into();
+        assert_eq!(find(&files, "mtch", 10), ["src/matcher.rs"]);
+        assert_eq!(find(&files, "app", 10).len(), 2);
+        assert_eq!(find(&files, "App", 10), ["web/App.vue"], "smart case");
+        assert_eq!(find(&files, "", 2), ["src/matcher.rs", "scripts/score.py"]);
+    }
 
     #[test]
     fn walk_respects_gitignore() {
