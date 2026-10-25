@@ -12,96 +12,51 @@ tackline highlights code with one of these themes. Without `--theme` it picks `b
 tackline --theme "TwoDark"
 ```
 
+Each theme's **Copy** button copies the command that starts tackline with that theme.
+
 `ansi`, `base16` and `base16-256` use your terminal's own colors, so they follow your terminal's
 color scheme; the screenshots show them with a One Dark palette. Borders, the status bar and the
 note markers always use your terminal's colors.
 
 ## Dark
 
-| **ansi** | **base16** |
-| --- | --- |
-| [![ansi](../img/themes/ansi.svg)](../img/themes/ansi.svg) | [![base16](../img/themes/base16.svg)](../img/themes/base16.svg) |
-| `--theme "ansi"` | `--theme "base16"` |
-
-| **base16-eighties.dark** | **base16-mocha.dark** |
-| --- | --- |
-| [![base16-eighties.dark](../img/themes/base16-eighties-dark.svg)](../img/themes/base16-eighties-dark.svg) | [![base16-mocha.dark](../img/themes/base16-mocha-dark.svg)](../img/themes/base16-mocha-dark.svg) |
-| `--theme "base16-eighties.dark"` | `--theme "base16-mocha.dark"` |
-
-| **base16-ocean.dark** | **base16-256** |
-| --- | --- |
-| [![base16-ocean.dark](../img/themes/base16-ocean-dark.svg)](../img/themes/base16-ocean-dark.svg) | [![base16-256](../img/themes/base16-256.svg)](../img/themes/base16-256.svg) |
-| `--theme "base16-ocean.dark"` | `--theme "base16-256"` |
-
-| **Catppuccin Frappe** | **Catppuccin Macchiato** |
-| --- | --- |
-| [![Catppuccin Frappe](../img/themes/catppuccin-frappe.svg)](../img/themes/catppuccin-frappe.svg) | [![Catppuccin Macchiato](../img/themes/catppuccin-macchiato.svg)](../img/themes/catppuccin-macchiato.svg) |
-| `--theme "Catppuccin Frappe"` | `--theme "Catppuccin Macchiato"` |
-
-| **Catppuccin Mocha** | **Coldark-Dark** |
-| --- | --- |
-| [![Catppuccin Mocha](../img/themes/catppuccin-mocha.svg)](../img/themes/catppuccin-mocha.svg) | [![Coldark-Dark](../img/themes/coldark-dark.svg)](../img/themes/coldark-dark.svg) |
-| `--theme "Catppuccin Mocha"` | `--theme "Coldark-Dark"` |
-
-| **DarkNeon** | **Dracula** |
-| --- | --- |
-| [![DarkNeon](../img/themes/darkneon.svg)](../img/themes/darkneon.svg) | [![Dracula](../img/themes/dracula.svg)](../img/themes/dracula.svg) |
-| `--theme "DarkNeon"` | `--theme "Dracula"` |
-
-| **gruvbox-dark** | **1337** |
-| --- | --- |
-| [![gruvbox-dark](../img/themes/gruvbox-dark.svg)](../img/themes/gruvbox-dark.svg) | [![1337](../img/themes/1337.svg)](../img/themes/1337.svg) |
-| `--theme "gruvbox-dark"` | `--theme "1337"` |
-
-| **Monokai Extended** | **Monokai Extended Bright** |
-| --- | --- |
-| [![Monokai Extended](../img/themes/monokai-extended.svg)](../img/themes/monokai-extended.svg) | [![Monokai Extended Bright](../img/themes/monokai-extended-bright.svg)](../img/themes/monokai-extended-bright.svg) |
-| `--theme "Monokai Extended"` | `--theme "Monokai Extended Bright"` |
-
-| **Monokai Extended Origin** | **Nord** |
-| --- | --- |
-| [![Monokai Extended Origin](../img/themes/monokai-extended-origin.svg)](../img/themes/monokai-extended-origin.svg) | [![Nord](../img/themes/nord.svg)](../img/themes/nord.svg) |
-| `--theme "Monokai Extended Origin"` | `--theme "Nord"` |
-
-| **OneHalfDark** | **Solarized (dark)** |
-| --- | --- |
-| [![OneHalfDark](../img/themes/onehalfdark.svg)](../img/themes/onehalfdark.svg) | [![Solarized (dark)](../img/themes/solarized-dark.svg)](../img/themes/solarized-dark.svg) |
-| `--theme "OneHalfDark"` | `--theme "Solarized (dark)"` |
-
-| **Sublime Snazzy** | **TwoDark** |
-| --- | --- |
-| [![Sublime Snazzy](../img/themes/sublime-snazzy.svg)](../img/themes/sublime-snazzy.svg) | [![TwoDark](../img/themes/twodark.svg)](../img/themes/twodark.svg) |
-| `--theme "Sublime Snazzy"` | `--theme "TwoDark"` |
-
-| **zenburn** |  |
-| --- | --- |
-| [![zenburn](../img/themes/zenburn.svg)](../img/themes/zenburn.svg) |  |
-| `--theme "zenburn"` |  |
+:::themes
+::theme[ansi]{src="../img/themes/ansi.svg" command="tackline --theme 'ansi'"}
+::theme[base16]{src="../img/themes/base16.svg" command="tackline --theme 'base16'"}
+::theme[base16-eighties.dark]{src="../img/themes/base16-eighties-dark.svg" command="tackline --theme 'base16-eighties.dark'"}
+::theme[base16-mocha.dark]{src="../img/themes/base16-mocha-dark.svg" command="tackline --theme 'base16-mocha.dark'"}
+::theme[base16-ocean.dark]{src="../img/themes/base16-ocean-dark.svg" command="tackline --theme 'base16-ocean.dark'"}
+::theme[base16-256]{src="../img/themes/base16-256.svg" command="tackline --theme 'base16-256'"}
+::theme[Catppuccin Frappe]{src="../img/themes/catppuccin-frappe.svg" command="tackline --theme 'Catppuccin Frappe'"}
+::theme[Catppuccin Macchiato]{src="../img/themes/catppuccin-macchiato.svg" command="tackline --theme 'Catppuccin Macchiato'"}
+::theme[Catppuccin Mocha]{src="../img/themes/catppuccin-mocha.svg" command="tackline --theme 'Catppuccin Mocha'"}
+::theme[Coldark-Dark]{src="../img/themes/coldark-dark.svg" command="tackline --theme 'Coldark-Dark'"}
+::theme[DarkNeon]{src="../img/themes/darkneon.svg" command="tackline --theme 'DarkNeon'"}
+::theme[Dracula]{src="../img/themes/dracula.svg" command="tackline --theme 'Dracula'"}
+::theme[gruvbox-dark]{src="../img/themes/gruvbox-dark.svg" command="tackline --theme 'gruvbox-dark'"}
+::theme[1337]{src="../img/themes/1337.svg" command="tackline --theme '1337'"}
+::theme[Monokai Extended]{src="../img/themes/monokai-extended.svg" command="tackline --theme 'Monokai Extended'"}
+::theme[Monokai Extended Bright]{src="../img/themes/monokai-extended-bright.svg" command="tackline --theme 'Monokai Extended Bright'"}
+::theme[Monokai Extended Origin]{src="../img/themes/monokai-extended-origin.svg" command="tackline --theme 'Monokai Extended Origin'"}
+::theme[Nord]{src="../img/themes/nord.svg" command="tackline --theme 'Nord'"}
+::theme[OneHalfDark]{src="../img/themes/onehalfdark.svg" command="tackline --theme 'OneHalfDark'"}
+::theme[Solarized (dark)]{src="../img/themes/solarized-dark.svg" command="tackline --theme 'Solarized (dark)'"}
+::theme[Sublime Snazzy]{src="../img/themes/sublime-snazzy.svg" command="tackline --theme 'Sublime Snazzy'"}
+::theme[TwoDark]{src="../img/themes/twodark.svg" command="tackline --theme 'TwoDark'"}
+::theme[zenburn]{src="../img/themes/zenburn.svg" command="tackline --theme 'zenburn'"}
+:::
 
 ## Light
 
-| **base16-ocean.light** | **Catppuccin Latte** |
-| --- | --- |
-| [![base16-ocean.light](../img/themes/base16-ocean-light.svg)](../img/themes/base16-ocean-light.svg) | [![Catppuccin Latte](../img/themes/catppuccin-latte.svg)](../img/themes/catppuccin-latte.svg) |
-| `--theme "base16-ocean.light"` | `--theme "Catppuccin Latte"` |
-
-| **Coldark-Cold** | **GitHub** |
-| --- | --- |
-| [![Coldark-Cold](../img/themes/coldark-cold.svg)](../img/themes/coldark-cold.svg) | [![GitHub](../img/themes/github.svg)](../img/themes/github.svg) |
-| `--theme "Coldark-Cold"` | `--theme "GitHub"` |
-
-| **gruvbox-light** | **InspiredGitHub** |
-| --- | --- |
-| [![gruvbox-light](../img/themes/gruvbox-light.svg)](../img/themes/gruvbox-light.svg) | [![InspiredGitHub](../img/themes/inspiredgithub.svg)](../img/themes/inspiredgithub.svg) |
-| `--theme "gruvbox-light"` | `--theme "InspiredGitHub"` |
-
-| **Monokai Extended Light** | **OneHalfLight** |
-| --- | --- |
-| [![Monokai Extended Light](../img/themes/monokai-extended-light.svg)](../img/themes/monokai-extended-light.svg) | [![OneHalfLight](../img/themes/onehalflight.svg)](../img/themes/onehalflight.svg) |
-| `--theme "Monokai Extended Light"` | `--theme "OneHalfLight"` |
-
-| **Solarized (light)** |  |
-| --- | --- |
-| [![Solarized (light)](../img/themes/solarized-light.svg)](../img/themes/solarized-light.svg) |  |
-| `--theme "Solarized (light)"` |  |
+:::themes
+::theme[base16-ocean.light]{src="../img/themes/base16-ocean-light.svg" command="tackline --theme 'base16-ocean.light'"}
+::theme[Catppuccin Latte]{src="../img/themes/catppuccin-latte.svg" command="tackline --theme 'Catppuccin Latte'"}
+::theme[Coldark-Cold]{src="../img/themes/coldark-cold.svg" command="tackline --theme 'Coldark-Cold'"}
+::theme[GitHub]{src="../img/themes/github.svg" command="tackline --theme 'GitHub'"}
+::theme[gruvbox-light]{src="../img/themes/gruvbox-light.svg" command="tackline --theme 'gruvbox-light'"}
+::theme[InspiredGitHub]{src="../img/themes/inspiredgithub.svg" command="tackline --theme 'InspiredGitHub'"}
+::theme[Monokai Extended Light]{src="../img/themes/monokai-extended-light.svg" command="tackline --theme 'Monokai Extended Light'"}
+::theme[OneHalfLight]{src="../img/themes/onehalflight.svg" command="tackline --theme 'OneHalfLight'"}
+::theme[Solarized (light)]{src="../img/themes/solarized-light.svg" command="tackline --theme 'Solarized (light)'"}
+:::
 

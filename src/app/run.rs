@@ -720,27 +720,17 @@ mod screenshots {
             }
             .push(entry);
         }
-        // Two per row; click a screenshot for the full size.
+        // The site's ::theme component: screenshot (click for full size), name
+        // and a copy button for the command that starts tackline with it.
         let grid = |themes: &[(String, String)]| {
-            themes
-                .chunks(2)
-                .map(|pair| {
-                    let cell = |f: &dyn Fn(&str, &str) -> String| {
-                        let mut cells: Vec<String> = pair.iter().map(|(n, s)| f(n, s)).collect();
-                        cells.resize(2, String::new());
-                        format!("| {} |", cells.join(" | "))
-                    };
-                    let img = |n: &str, s: &str| {
-                        format!("[![{n}](../img/themes/{s}.svg)](../img/themes/{s}.svg)")
-                    };
-                    format!(
-                        "{}\n| --- | --- |\n{}\n{}\n\n",
-                        cell(&|n, _| format!("**{n}**")),
-                        cell(&img),
-                        cell(&|n, _| format!("`--theme \"{n}\"`")),
-                    )
+            let items: String = themes
+                .iter()
+                .map(|(n, s)| {
+                    let command = format!("tackline --theme '{n}'");
+                    format!("::theme[{n}]{{src=\"../img/themes/{s}.svg\" command=\"{command}\"}}\n")
                 })
-                .collect::<String>()
+                .collect();
+            format!(":::themes\n{items}:::\n\n")
         };
         let (dark, light) = (grid(&dark), grid(&light));
         let page = format!(
@@ -749,6 +739,7 @@ mod screenshots {
 tackline highlights code with one of these themes. Without `--theme` it picks `base16-ocean.dark`, or\n\
 `InspiredGitHub` when the terminal reports a light background (see [Terminals](terminals.md#light-and-dark)).\n\n\
 ```sh\ntackline --theme \"TwoDark\"\n```\n\n\
+Each theme's **Copy** button copies the command that starts tackline with that theme.\n\n\
 `ansi`, `base16` and `base16-256` use your terminal's own colors, so they follow your terminal's\n\
 color scheme; the screenshots show them with a One Dark palette. Borders, the status bar and the\n\
 note markers always use your terminal's colors.\n\n\

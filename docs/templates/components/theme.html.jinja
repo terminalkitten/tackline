@@ -1,0 +1,13 @@
+{# ::theme[Name]{src="screenshot.svg" command="…"}: one theme in the gallery, with
+   a button that copies its command. #}
+{% from "partials/icons.html.jinja" import icon %}
+<figure class="tk-theme" id="{{ id }}">
+  <a href="{{ directive.attrs.src }}"><img src="{{ directive.attrs.src }}" alt="tackline with the {{ directive.title }} theme" loading="lazy"></a>
+  <figcaption>
+    <strong>{{ directive.title }}</strong>
+    <div class="tk-theme-cmd">
+      <code>{{ directive.attrs.command }}</code>
+      <button type="button" class="btn" data-variant="outline" data-size="xs" data-dk-copy-text="{{ directive.attrs.command }}" hidden>{{ icon('copy') }}<span>Copy</span></button>
+    </div>
+  </figcaption>
+</figure>

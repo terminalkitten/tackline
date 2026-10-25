@@ -1,0 +1,10 @@
+{# :::themes: the theme gallery's grid, two columns where there's room. #}
+<div class="tk-themes" id="{{ id }}">{{ body }}</div>
+<style>
+  .tk-themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.5rem; margin: 1rem 0 2rem; }
+  .tk-theme { margin: 0; }
+  .tk-theme img { width: 100%; height: auto; border-radius: 6px; }
+  .tk-theme figcaption { display: grid; gap: .4rem; margin-top: .5rem; }
+  .tk-theme-cmd { display: flex; gap: .5rem; align-items: flex-start; }
+  .tk-theme-cmd code { flex: 1; font-size: .78rem; white-space: nowrap; overflow-x: auto; }
+</style>
