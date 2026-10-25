@@ -112,6 +112,10 @@ pub fn diff(root: &Path, base: Option<&str>) -> Result<Vec<FileDiff>, git2::Erro
             .or_else(|| delta.old_file().path())
             .map(Path::to_path_buf)
             .unwrap_or_default();
+        // tackline's own notes aren't changes to review.
+        if path.starts_with(crate::store::DATA_DIR) {
+            continue;
+        }
         let (_, added, removed) = patch.line_stats()?;
         let mut rows = Vec::new();
         for h in 0..patch.num_hunks() {
@@ -215,6 +219,9 @@ mod tests {
     #[test]
     fn uncommitted_change() {
         let repo = crate::testutil::fixture_repo();
+        // Not gitignored, but still left out.
+        fs::create_dir(repo.path().join(".tackline")).unwrap();
+        fs::write(repo.path().join(".tackline/state.json"), "{}").unwrap();
         let files = diff(repo.path(), None).unwrap();
         assert_eq!(files.len(), 1);
         let f = &files[0];
