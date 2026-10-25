@@ -19,7 +19,10 @@ Pressing :kbd[c] when no session exists asks for a name the same way.
 
 ## Switch sessions
 
-Press :kbd[Ctrl+O] for the list of sessions with their note counts; `●` marks the active one.
+Press :kbd[Shift+Tab] to make the next session active, in any view; it wraps around after the last
+one, and a message shows which session you're on. The gutter markers follow straight away.
+
+For a longer list, press :kbd[Ctrl+O] for the list of sessions with their note counts; `●` marks the active one.
 :kbd[j] / :kbd[k] move, :kbd[Enter] makes the session active and opens the Session view, :kbd[Esc]
 closes the list.
 

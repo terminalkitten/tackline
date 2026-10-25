@@ -13,6 +13,7 @@ so tackline never uses them. Press :kbd[?] in the app for a quick list.
 | :kbd[1] / :kbd[2] / :kbd[3] | Files / Diff / Session view        |
 | :kbd[Ctrl+N]                | New session                        |
 | :kbd[Ctrl+O]                | Pick the active session            |
+| :kbd[Shift+Tab]             | Switch to the next session         |
 | :kbd[Ctrl+P]                | Find a file                        |
 | :kbd[Ctrl+F]                | Search code in the repo            |
 | :kbd[?]                     | Help                               |

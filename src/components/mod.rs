@@ -58,6 +58,7 @@ pub fn global_key(ev: &Event<NoUserEvent>) -> Option<Msg> {
         (Key::Char('2'), false) => Some(Msg::ShowView(View::Diff)),
         (Key::Char('3'), false) => Some(Msg::ShowView(View::Session)),
         (Key::Char('?'), false) => Some(Msg::OpenPopup(Popup::Help)),
+        (Key::BackTab, _) => Some(Msg::NextSession),
         (Key::Char('n'), true) => Some(Msg::OpenPopup(Popup::NewSession)),
         (Key::Char('o'), true) => Some(Msg::OpenPopup(Popup::SessionPicker)),
         (Key::Char('p'), true) => Some(Msg::OpenPopup(Popup::Finder)),

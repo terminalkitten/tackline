@@ -381,7 +381,7 @@ impl AppComponent<Msg, NoUserEvent> for CodeView {
             (Key::Char('/'), false) => return Some(Msg::OpenPopup(Popup::FindInFile)),
             (Key::Char('n'), false) => return Some(Msg::FindNext),
             (Key::Char('N'), false) => return Some(Msg::FindPrev),
-            (Key::Tab | Key::BackTab, _) => return Some(Msg::ToggleFocus),
+            (Key::Tab, _) => return Some(Msg::ToggleFocus),
             _ => return global_key(ev),
         };
         Some(Msg::Move(motion))

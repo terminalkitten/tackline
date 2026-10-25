@@ -20,9 +20,7 @@ impl AppComponent<Msg, NoUserEvent> for DiffFiles {
         match key(ev)? {
             (Key::Down | Key::Char('j'), false) => Some(Msg::DiffMove(1)),
             (Key::Up | Key::Char('k'), false) => Some(Msg::DiffMove(-1)),
-            (Key::Enter | Key::Right | Key::Char('l') | Key::Tab | Key::BackTab, _) => {
-                Some(Msg::ToggleFocus)
-            }
+            (Key::Enter | Key::Right | Key::Char('l') | Key::Tab, _) => Some(Msg::ToggleFocus),
             (Key::Char('r'), false) => Some(Msg::RefreshDiff),
             _ => global_key(ev),
         }

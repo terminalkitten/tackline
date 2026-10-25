@@ -173,7 +173,7 @@ impl AppComponent<Msg, NoUserEvent> for FileTree {
             (Key::Char('d'), true) | (Key::PageDown, _) => Cmd::Scroll(Direction::Down),
             (Key::Char('u'), true) | (Key::PageUp, _) => Cmd::Scroll(Direction::Up),
             (Key::Enter, false) => return self.enter(),
-            (Key::Tab | Key::BackTab, _) => return Some(Msg::ToggleFocus),
+            (Key::Tab, _) => return Some(Msg::ToggleFocus),
             _ => return global_key(ev),
         };
         self.component.perform(cmd);

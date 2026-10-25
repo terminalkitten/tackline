@@ -13,6 +13,7 @@ const KEYS: &[(&str, &str)] = &[
     ("1 / 2 / 3", "Files / Diff / Session view"),
     ("Ctrl+N", "New session"),
     ("Ctrl+O", "Pick the active session"),
+    ("Shift+Tab", "Next session"),
     ("Ctrl+P", "Find a file"),
     ("Ctrl+F", "Search code in the repo"),
     ("/  n / N", "Search this file, next / previous"),

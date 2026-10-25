@@ -120,6 +120,8 @@ pub enum Msg {
     NewSession(String),
     /// Make the session at this index (in load order) active.
     PickSession(usize),
+    /// Shift+Tab: make the next session active (wrapping).
+    NextSession,
     /// Session view: select the previous/next note.
     NoteUp,
     NoteDown,
@@ -415,6 +417,7 @@ impl Model {
             }
             Msg::NewSession(name) => self.new_session(&name),
             Msg::PickSession(i) => self.pick_session(i),
+            Msg::NextSession => self.next_session(),
             Msg::NoteUp => self.note_cursor = self.note_cursor.saturating_sub(1),
             Msg::NoteDown => {
                 self.note_cursor = (self.note_cursor + 1).min(self.notes.len().saturating_sub(1))

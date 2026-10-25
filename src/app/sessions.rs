@@ -48,6 +48,27 @@ impl Model {
         self.show_view(View::Session);
     }
 
+    /// Shift+Tab: the next session becomes active; the view stays put.
+    pub(super) fn next_session(&mut self) {
+        if self.sessions.is_empty() {
+            return self.toast(ToastKind::Warning, "No sessions yet: Ctrl+N creates one");
+        }
+        let next = self
+            .active_index()
+            .map_or(0, |i| (i + 1) % self.sessions.len());
+        let session = &self.sessions[next];
+        let text = format!(
+            "Active session: {} ({})",
+            session.name,
+            note_count(session.notes.len())
+        );
+        self.state.active_session_id = Some(session.id.clone());
+        self.save_state();
+        self.note_cursor = 0;
+        self.notes_changed();
+        self.toast(ToastKind::Info, text);
+    }
+
     /// Re-read the active session's files and relocate its notes.
     pub(super) fn resolve_notes(&mut self) {
         let notes = match self.active_session() {
@@ -243,6 +264,43 @@ mod tests {
         let (expected, _) = compile(&m.sessions[0], repo.path());
         assert_eq!(m.clipboard.as_deref(), Some(expected.as_str()));
         assert_eq!(m.toast.as_ref().unwrap().text, "Copied prompt (1 note)");
+    }
+
+    #[test]
+    fn shift_tab_cycles_the_active_session() {
+        let repo = fixture_repo();
+        let mut m = model(repo.path());
+        m.update(Msg::NextSession);
+        assert!(
+            m.toast
+                .as_ref()
+                .unwrap()
+                .text
+                .starts_with("No sessions yet")
+        );
+        for name in ["A", "B", "C"] {
+            m.update(Msg::NewSession(name.into()));
+        }
+        m.sessions[0]
+            .notes
+            .push(note(repo.path(), "web/app.ts", Span::lines(1, 1), "x"));
+        m.update(Msg::OpenFile("web/app.ts".into()));
+        assert!(m.marks.is_empty(), "C is active: no notes");
+        m.update(Msg::NextSession);
+        assert_eq!(
+            m.active_session().unwrap().name,
+            "A",
+            "wraps from the last to the first"
+        );
+        assert_eq!(m.toast.as_ref().unwrap().text, "Active session: A (1 note)");
+        assert_eq!(m.marks.len(), 1, "gutter follows the active session");
+        assert_eq!(m.view, View::Files, "stays in the same view");
+        m.update(Msg::NextSession);
+        assert_eq!(m.active_session().unwrap().name, "B");
+        assert_eq!(
+            m.store.load_state().unwrap().active_session_id.as_ref(),
+            Some(&m.sessions[1].id)
+        );
     }
 
     #[test]
