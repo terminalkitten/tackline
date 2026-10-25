@@ -1,0 +1,13 @@
+---
+source: src/compile.rs
+expression: "render(&session, root)"
+---
+# Stale
+
+1. `web/app.ts:1`
+   ```ts
+   export function count(items: string[]): number {
+   ```
+   still here
+---
+warning: skipped stale note at src/matcher.rs:1: the annotated code is gone

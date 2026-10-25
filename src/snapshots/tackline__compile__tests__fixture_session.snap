@@ -1,0 +1,31 @@
+---
+source: src/compile.rs
+expression: "render(&loaded, root)"
+---
+# Search speedup
+
+1. `src/matcher.rs:5-9`
+   ```rs
+       for item in items {
+           if item.contains(query) {
+               out.push(item.clone());
+           }
+       }
+   ```
+   replace the loop with an iterator chain
+
+2. `scripts/score.py:2:13-2:38`
+   ```py
+       total = sum(v * v for v in values)
+   ```
+   use math.fsum here
+
+3. `web/App.vue:1-3`
+   ```vue
+   <template>
+     <h1>{{ title }}</h1>
+   </template>
+   ```
+   show the match count
+   next to the title
+---
