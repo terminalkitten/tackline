@@ -7,6 +7,7 @@ use super::{Cursor, Model, Motion, Popup, ToastKind, display_col};
 use crate::anchor::{Relocation, capture, relocate};
 use crate::components::code_view::{CodeProps, Mark, Selection as SelectionView};
 use crate::components::note_popup;
+use crate::git::Row;
 use crate::model::{Anchor, Note, Span, View};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -130,11 +131,34 @@ impl Model {
             self.resolve_notes();
             return self.edit_note_at(index);
         }
-        let Some(anchor) = capture(span, &lines.join("\n")) else {
+        let path = file.path.clone();
+        // In a diff, rows map to the working tree's (new-side) lines.
+        let (span, text) = match &file.diff {
+            None => (span, lines.join("\n")),
+            Some(rows) => {
+                let picked = &rows[span.start_line as usize - 1..span.end_line as usize];
+                let Some(new) = picked.iter().map(|r| r.new).collect::<Option<Vec<u32>>>() else {
+                    return self.toast(
+                        ToastKind::Warning,
+                        "Removed lines and hunk headers can't have notes: select new-side lines",
+                    );
+                };
+                let Ok(text) = std::fs::read_to_string(self.root.join(&path)) else {
+                    return self.toast(ToastKind::Error, "Can't read the file for this diff");
+                };
+                let span = Span {
+                    start_line: new[0],
+                    end_line: new[new.len() - 1],
+                    ..span
+                };
+                (span, text)
+            }
+        };
+        let Some(anchor) = capture(span, &text) else {
             return;
         };
         self.draft = Some(Draft {
-            file: file.path.clone(),
+            file: path,
             span,
             anchor,
             text: String::new(),
@@ -243,7 +267,7 @@ impl Model {
     /// `d`: in the Session view the selected note, in the code view the
     /// note under the cursor (asks first).
     pub(super) fn ask_delete_note(&mut self) {
-        if self.view == View::Files {
+        if matches!(self.view, View::Files | View::Diff) {
             let line = self.cursor.line;
             let Some(mark) = self
                 .marks
@@ -302,24 +326,44 @@ impl Model {
     pub(super) fn refresh_marks(&mut self) {
         let marks = match (&self.file, self.lines(), self.active_session()) {
             (Some(file), Some(lines), Some(session)) => {
-                let text = lines.join("\n");
+                // A diff relocates against the file on disk, then maps the
+                // new-side lines to diff rows.
+                let text = match &file.diff {
+                    None => lines.join("\n"),
+                    Some(_) => {
+                        std::fs::read_to_string(self.root.join(&file.path)).unwrap_or_default()
+                    }
+                };
                 session
                     .notes
                     .iter()
                     .enumerate()
                     .filter(|(_, n)| n.file == file.path)
-                    .map(|(i, n)| {
+                    .filter_map(|(i, n)| {
                         let (span, stale) = match relocate(n.span, &n.anchor, &text) {
                             Relocation::Kept => (n.span, false),
                             Relocation::Moved(span) => (span, false),
                             Relocation::Stale => (n.span, true),
                         };
-                        Mark {
-                            start: span.start_line as usize - 1,
-                            end: span.end_line as usize - 1,
+                        let (start, end) = match &file.diff {
+                            None => (span.start_line as usize - 1, span.end_line as usize - 1),
+                            Some(rows) => {
+                                let shown = |r: &&Row| {
+                                    r.new.is_some_and(|n| {
+                                        (span.start_line..=span.end_line).contains(&n)
+                                    })
+                                };
+                                let first = rows.iter().position(|r| shown(&r))?;
+                                let last = rows.iter().rposition(|r| shown(&r))?;
+                                (first, last)
+                            }
+                        };
+                        Some(Mark {
+                            start,
+                            end,
                             stale,
                             note: i,
-                        }
+                        })
                     })
                     .collect()
             }

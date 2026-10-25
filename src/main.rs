@@ -10,6 +10,9 @@ use tackline::{app, compile, git, highlight};
 #[derive(Parser)]
 #[command(version)]
 struct Cli {
+    /// Diff against merge-base(HEAD, <rev>) instead of HEAD, e.g. upstream/main.
+    #[arg(long)]
+    base: Option<String>,
     /// Syntax theme (default: follows the terminal's light/dark hint).
     #[arg(long)]
     theme: Option<String>,
@@ -40,7 +43,15 @@ fn main() -> Result<()> {
                 let names: Vec<_> = highlight::theme_names().collect();
                 bail!("unknown theme; available: {}", names.join(", "));
             };
-            let model = app::Model::new(root.clone(), theme, Box::new(FsStore::new(&root)))?;
+            let mut model = app::Model::new(root.clone(), theme, Box::new(FsStore::new(&root)))?;
+            if git::repo_root(&root).is_some() {
+                if let Some(rev) = &cli.base {
+                    git::diff(&root, Some(rev)).with_context(|| format!("--base {rev}"))?;
+                }
+                model = model.with_git(cli.base);
+            } else if cli.base.is_some() {
+                bail!("--base needs a git repository");
+            }
             app::run(model)?;
         }
         Some(Command::Sessions) => {

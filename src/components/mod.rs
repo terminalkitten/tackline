@@ -1,6 +1,7 @@
 //! Thin components: they turn key events into `Msg`s and render from props.
 
 pub mod code_view;
+pub mod diff_view;
 pub mod file_tree;
 pub mod finder_popup;
 pub mod help_popup;
@@ -11,8 +12,6 @@ pub mod session_view;
 pub mod status_bar;
 pub mod toast;
 
-use tui_realm_stdlib::components::Paragraph;
-use tuirealm::component::{AppComponent, Component};
 use tuirealm::event::{Event, Key, KeyModifiers, MouseEventKind, NoUserEvent};
 use tuirealm::props::{BorderType, Borders, Color};
 use tuirealm::ratatui::layout::{Constraint, Flex, Layout, Rect};
@@ -80,24 +79,4 @@ pub fn borders(focused: bool) -> Borders {
         } else {
             Color::DarkGray
         })
-}
-
-/// Stand-in for views that aren't built yet.
-#[derive(Component)]
-pub struct Placeholder {
-    component: Paragraph,
-}
-
-impl Default for Placeholder {
-    fn default() -> Self {
-        Self {
-            component: Paragraph::default().borders(borders(true)),
-        }
-    }
-}
-
-impl AppComponent<Msg, NoUserEvent> for Placeholder {
-    fn on(&mut self, ev: &Event<NoUserEvent>) -> Option<Msg> {
-        wheel(ev).or_else(|| global_key(ev))
-    }
 }

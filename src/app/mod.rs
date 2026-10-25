@@ -1,5 +1,6 @@
 //! Model, Msg and update: all app state and every change to it.
 
+mod diff;
 mod notes;
 mod run;
 mod search;
@@ -20,6 +21,7 @@ pub use search::{Picker, PickerKind};
 
 use crate::components::code_view::{self, CodeProps, Mark};
 use crate::components::session_view::NoteRow;
+use crate::git::{FileDiff, Row};
 use crate::highlight::{Highlighted, TAB};
 use crate::model::{Session, State, View};
 use crate::store::{Store, StoreError};
@@ -36,7 +38,7 @@ const HIGHLIGHT_BATCH: usize = 500;
 pub enum Id {
     FileTree,
     CodeView,
-    Placeholder,
+    DiffFiles,
     StatusBar,
     Help,
     NameInput,
@@ -139,6 +141,10 @@ pub enum Msg {
     AskDeleteNote,
     DeleteNote,
     MoveNote(isize),
+    /// Diff view: select the previous/next changed file.
+    DiffMove(isize),
+    /// `r`: reload the diff.
+    RefreshDiff,
     /// The search input changed / Enter was pressed in it.
     QueryChanged(String),
     QueryEnter(String),
@@ -171,6 +177,27 @@ pub struct OpenFile {
     pub path: PathBuf,
     pub content: Content,
     mtime: Option<SystemTime>,
+    /// In the Diff view: one row per line of `content`.
+    pub diff: Option<Vec<Row>>,
+}
+
+impl OpenFile {
+    /// Highlight cache key: a file and its diff are highlighted separately.
+    fn key(&self) -> (PathBuf, bool) {
+        (self.path.clone(), self.diff.is_some())
+    }
+}
+
+/// The code pane's state; the Files and Diff views each keep one.
+#[derive(Default)]
+struct Pane {
+    file: Option<OpenFile>,
+    cursor: Cursor,
+    top: usize,
+    left: usize,
+    selection: Option<Selection>,
+    marks: Vec<Mark>,
+    focus: Option<Focus>,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -214,9 +241,20 @@ pub struct Model {
     pub picker: Option<Picker>,
     /// Last `/` query.
     pub find: Option<String>,
+    /// Inside a git repo: the Diff view works.
+    pub git: bool,
+    /// `--base`: diff against `merge-base(HEAD, base)` instead of `HEAD`.
+    pub base: Option<String>,
+    pub diff: Vec<FileDiff>,
+    /// Selected file in the Diff view's list.
+    pub diff_selected: usize,
+    /// Which view the live code pane fields belong to (Files or Diff).
+    live: View,
+    /// The other view's code pane.
+    stashed: Pane,
     store: Box<dyn Store>,
     /// Per-file highlight caches, dropped when the file's mtime changes.
-    highlights: HashMap<PathBuf, (Option<SystemTime>, Highlighted)>,
+    highlights: HashMap<(PathBuf, bool), (Option<SystemTime>, Highlighted)>,
 }
 
 /// Screen areas: tree, code pane, status bar.
@@ -259,6 +297,12 @@ impl Model {
             note_after_new_session: false,
             picker: None,
             find: None,
+            git: false,
+            base: None,
+            diff: Vec::new(),
+            diff_selected: 0,
+            live: View::Files,
+            stashed: Pane::default(),
             root,
             view: View::Files,
             focus: Focus::Tree,
@@ -295,16 +339,19 @@ impl Model {
             (Some(Popup::ConfirmDelete), ..) => Id::ConfirmDelete,
             (Some(Popup::Finder | Popup::Search | Popup::FindInFile), ..) => Id::QueryInput,
             (None, View::Files, Focus::Tree) => Id::FileTree,
-            (None, View::Files, Focus::Code) => Id::CodeView,
+            (None, View::Diff, Focus::Tree) => Id::DiffFiles,
+            (None, View::Files | View::Diff, Focus::Code) => Id::CodeView,
             (None, View::Session, _) => Id::SessionView,
-            (None, View::Diff, _) => Id::Placeholder,
         }
     }
 
     /// Visible code rows and columns (inside the pane's border, after the gutter).
     fn viewport(&self) -> (usize, usize) {
         let code = layout(Rect::new(0, 0, self.size.0, self.size.1)).code;
-        let gutter = self.lines().map_or(0, |l| code_view::gutter_width(l.len()));
+        let gutter = match self.file.as_ref().and_then(|f| f.diff.as_ref()) {
+            Some(rows) => code_view::diff_gutter_width(code_view::diff_digits(rows)),
+            None => self.lines().map_or(0, |l| code_view::gutter_width(l.len())),
+        };
         (
             code.height.saturating_sub(2).max(1) as usize,
             (code.width.saturating_sub(2) as usize)
@@ -369,6 +416,9 @@ impl Model {
             Msg::PickerMove(step) => self.picker_move(step),
             Msg::FindNext => self.find_next(true),
             Msg::Wheel { col, row, lines } => self.wheel(col, row, lines),
+            Msg::DiffMove(step) => self.diff_move(step),
+            Msg::RefreshDiff if self.view == View::Diff => self.refresh_diff(),
+            Msg::RefreshDiff => {}
             Msg::FindPrev => self.find_next(false),
             Msg::Resize(w, h) => {
                 self.size = (w, h);
@@ -408,13 +458,15 @@ impl Model {
             self.state.last_file = Some(path.clone());
             self.save_state();
         }
-        if self.highlights.get(&path).is_some_and(|(t, _)| *t != mtime) {
-            self.highlights.remove(&path);
+        let key = (path.clone(), false);
+        if self.highlights.get(&key).is_some_and(|(t, _)| *t != mtime) {
+            self.highlights.remove(&key);
         }
         self.file = Some(OpenFile {
             path,
             content,
             mtime,
+            diff: None,
         });
         self.cursor = Cursor::default();
         self.top = 0;
@@ -425,6 +477,15 @@ impl Model {
     }
 
     fn show_view(&mut self, view: View) {
+        if view == View::Diff && !self.git {
+            return self.toast(ToastKind::Warning, "Not a git repository: no Diff view");
+        }
+        if matches!(view, View::Files | View::Diff) {
+            self.use_pane(view);
+        }
+        if view == View::Diff && self.file.is_none() {
+            self.open_diff();
+        }
         self.view = view;
         if view == View::Session {
             self.resolve_notes();
@@ -433,6 +494,25 @@ impl Model {
             self.state.last_view = Some(view);
             self.save_state();
         }
+    }
+
+    /// Make `view`'s code pane the live one (Files and Diff each keep theirs).
+    fn use_pane(&mut self, view: View) {
+        if view == self.live {
+            return;
+        }
+        let s = &mut self.stashed;
+        std::mem::swap(&mut self.file, &mut s.file);
+        std::mem::swap(&mut self.cursor, &mut s.cursor);
+        std::mem::swap(&mut self.top, &mut s.top);
+        std::mem::swap(&mut self.left, &mut s.left);
+        std::mem::swap(&mut self.selection, &mut s.selection);
+        std::mem::swap(&mut self.marks, &mut s.marks);
+        let focus = s.focus.replace(self.focus);
+        self.focus = focus.unwrap_or(Focus::Tree);
+        self.live = view;
+        // Notes may have changed while the pane was away.
+        self.refresh_marks();
     }
 
     fn toast(&mut self, kind: ToastKind, text: impl Into<String>) {
@@ -459,7 +539,8 @@ impl Model {
         let areas = layout(Rect::new(0, 0, self.size.0, self.size.1));
         let at = tuirealm::ratatui::layout::Position::new(col, row);
         match self.view {
-            View::Files if areas.code.contains(at) => self.scroll_lines(lines),
+            View::Files | View::Diff if areas.code.contains(at) => self.scroll_lines(lines),
+            View::Diff if areas.tree.contains(at) => self.diff_move(lines.signum()),
             View::Session if areas.main.contains(at) && lines > 0 => self.update(Msg::NoteDown),
             View::Session if areas.main.contains(at) => self.update(Msg::NoteUp),
             _ => {}
@@ -528,7 +609,7 @@ impl Model {
             Content::Placeholder(text) => return CodeProps::message(&title, text),
             Content::Text(lines) => lines,
         };
-        let (_, hl) = self.highlights.entry(file.path.clone()).or_insert_with(|| {
+        let (_, hl) = self.highlights.entry(file.key()).or_insert_with(|| {
             (
                 file.mtime,
                 Highlighted::new(&file.path, &lines[0], &self.theme),
@@ -558,6 +639,8 @@ impl Model {
                 .filter(|_| focused)
                 .map(|l| (l, display_col(&lines[l], self.cursor.col))),
             current_line: self.cursor.line,
+            diff: file.diff.as_ref().map(|d| &d[self.top..end]),
+            diff_digits: file.diff.as_deref().map_or(0, code_view::diff_digits),
             marks: &self.marks,
             selection: self.selection_view(),
             theme: &self.theme,
@@ -572,13 +655,21 @@ impl Model {
         };
         let end = (self.top + self.viewport().0).min(lines.len());
         self.highlights
-            .get(&file.path)
+            .get(&file.key())
             .is_some_and(|(_, hl)| hl.lines.len() < end)
     }
 
     /// `src/main.rs 12:4`, 1-based.
     pub fn location(&self) -> Option<String> {
         let file = self.file.as_ref()?;
+        if let Some(rows) = &file.diff {
+            let row = rows.get(self.cursor.line)?;
+            return Some(match (row.new, row.old) {
+                (Some(n), _) => format!("{} {n}:{}", file.path.display(), self.cursor.col + 1),
+                (None, Some(o)) => format!("{} -{o} (removed)", file.path.display()),
+                (None, None) => file.path.display().to_string(),
+            });
+        }
         Some(format!(
             "{} {}:{}",
             file.path.display(),
@@ -665,7 +756,13 @@ mod tests {
         // Only what's been on screen got highlighted.
         let props = m.code_props();
         assert_eq!(props.rows.len(), 9);
-        assert_eq!(m.highlights[&PathBuf::from("long.txt")].1.lines.len(), 100);
+        assert_eq!(
+            m.highlights[&(PathBuf::from("long.txt"), false)]
+                .1
+                .lines
+                .len(),
+            100
+        );
     }
 
     #[test]
@@ -771,7 +868,10 @@ mod tests {
         let f = fs::File::options().write(true).open(&path).unwrap();
         f.set_modified(SystemTime::UNIX_EPOCH).unwrap();
         m.update(Msg::OpenFile("web/app.ts".into()));
-        assert!(!m.highlights.contains_key(&PathBuf::from("web/app.ts")));
+        assert!(
+            !m.highlights
+                .contains_key(&(PathBuf::from("web/app.ts"), false))
+        );
     }
 
     #[test]
@@ -780,8 +880,8 @@ mod tests {
         let mut m = model(repo.path());
         press(&mut m, &[Msg::ToggleFocus]);
         assert_eq!(m.active_id(), Id::CodeView);
-        press(&mut m, &[Msg::ShowView(View::Diff)]);
-        assert_eq!(m.active_id(), Id::Placeholder);
+        press(&mut m, &[Msg::ShowView(View::Session)]);
+        assert_eq!(m.active_id(), Id::SessionView);
         press(&mut m, &[Msg::OpenPopup(Popup::Help)]);
         assert_eq!(m.active_id(), Id::Help);
         press(&mut m, &[Msg::ClosePopup, Msg::ShowView(View::Files)]);

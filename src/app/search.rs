@@ -116,8 +116,9 @@ impl Model {
 
     /// Open `path` in the Files view at (line, col), 0-based, centered.
     pub(super) fn goto(&mut self, path: PathBuf, line: usize, col: usize) {
-        self.open(path);
+        self.use_pane(View::Files);
         self.view = View::Files;
+        self.open(path);
         self.focus = Focus::Code;
         let Some(lines) = self.lines() else {
             return;

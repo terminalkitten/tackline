@@ -15,6 +15,7 @@ use two_face::re_exports::syntect::highlighting::Theme;
 
 use super::{global_key, key, wheel};
 use crate::app::{Motion, Msg, Popup, SelectionKind};
+use crate::git::{Row, RowKind};
 use crate::highlight::color;
 
 /// What the pane shows, as set by the model.
@@ -60,6 +61,10 @@ pub struct Input<'a> {
     /// Cursor as (line, display column), when it should be drawn.
     pub cursor: Option<(usize, usize)>,
     pub current_line: usize,
+    /// Diff rows for the visible lines, when showing a diff.
+    pub diff: Option<&'a [Row]>,
+    /// Width of each line number column in a diff.
+    pub diff_digits: usize,
     /// Lines covered by notes in the active session.
     pub marks: &'a [Mark],
     pub selection: Option<Selection>,
@@ -105,11 +110,15 @@ impl Selection {
 }
 
 pub fn build(input: Input) -> CodeProps {
-    let digits = gutter_width(input.total_lines) - 3;
     let settings = &input.theme.settings;
     let gutter = Style::new().fg(settings.gutter_foreground.map_or(Color::DarkGray, color));
     let current = Style::new().bg(settings.line_highlight.map_or(Color::Indexed(236), color));
     let selected = settings.selection.map_or(Color::Indexed(24), color);
+    let (added, removed) = diff_colors(input.theme);
+    let digits = match input.diff {
+        Some(_) => input.diff_digits,
+        None => gutter_width(input.total_lines) - 3,
+    };
 
     let rows = input
         .highlighted
@@ -117,6 +126,7 @@ pub fn build(input: Input) -> CodeProps {
         .enumerate()
         .map(|(i, line)| {
             let n = input.first_line + i;
+            let row = input.diff.map(|d| &d[i]);
             let cursor = input.cursor.filter(|(l, _)| *l == n).map(|(_, x)| x);
             let covering = input
                 .marks
@@ -128,11 +138,30 @@ pub fn build(input: Input) -> CodeProps {
                 None => Span::raw(" "),
             };
             let sel = input.selection.and_then(|s| s.cols(n));
-            let mut spans = vec![
-                Span::styled(format!("{:>digits$} ", n + 1), gutter),
-                marker,
-                Span::raw(" "),
-            ];
+            let mut spans = match row {
+                None => vec![Span::styled(format!("{:>digits$} ", n + 1), gutter), marker],
+                Some(row) => {
+                    let num = |n: Option<u32>| n.map_or(String::new(), |n| n.to_string());
+                    let sign = match row.kind {
+                        RowKind::Added => "+",
+                        RowKind::Removed => "-",
+                        RowKind::Context | RowKind::Hunk => " ",
+                    };
+                    let numbers =
+                        format!("{:>digits$} {:>digits$} {sign}", num(row.old), num(row.new));
+                    vec![Span::styled(numbers, gutter), marker]
+                }
+            };
+            spans.push(Span::raw(" "));
+            // Hunk headers aren't code: show them dim, unhighlighted.
+            let hunk;
+            let line = match row {
+                Some(r) if r.kind == RowKind::Hunk => {
+                    hunk = Line::styled(r.text.clone(), Style::new().fg(Color::DarkGray));
+                    &hunk
+                }
+                _ => line,
+            };
             spans.extend(visible(
                 line,
                 input.left,
@@ -141,14 +170,20 @@ pub fn build(input: Input) -> CodeProps {
                 sel,
                 selected,
             ));
-            let row = Line::from(spans);
-            match (
-                input.selection.is_some_and(|s| s.linewise) && sel.is_some(),
-                n == input.current_line,
-            ) {
-                (true, _) => row.style(Style::new().bg(selected)),
-                (false, true) => row.style(current),
-                (false, false) => row,
+            let out = Line::from(spans);
+            let diff_bg = match row.map(|r| r.kind) {
+                Some(RowKind::Added) => Some(added),
+                Some(RowKind::Removed) => Some(removed),
+                _ => None,
+            };
+            if input.selection.is_some_and(|s| s.linewise) && sel.is_some() {
+                out.style(Style::new().bg(selected))
+            } else if let Some(bg) = diff_bg {
+                out.style(Style::new().bg(bg))
+            } else if n == input.current_line {
+                out.style(current)
+            } else {
+                out
             }
         })
         .collect();
@@ -157,6 +192,35 @@ pub fn build(input: Input) -> CodeProps {
         rows,
         focused: input.focused,
         scroll: 0,
+    }
+}
+
+/// Gutter width for a diff: old and new line numbers, sign, marker, space.
+pub fn diff_gutter_width(digits: usize) -> usize {
+    2 * digits + 5
+}
+
+/// Digits needed for the largest line number in `rows`.
+pub fn diff_digits(rows: &[Row]) -> usize {
+    let max = rows
+        .iter()
+        .flat_map(|r| [r.old, r.new])
+        .flatten()
+        .max()
+        .unwrap_or(1);
+    max.to_string().len()
+}
+
+/// Subtle added/removed backgrounds that suit the theme's brightness.
+fn diff_colors(theme: &Theme) -> (Color, Color) {
+    let light = theme
+        .settings
+        .background
+        .is_some_and(|c| u32::from(c.r) + u32::from(c.g) + u32::from(c.b) > 3 * 128);
+    if light {
+        (Color::Rgb(218, 251, 225), Color::Rgb(255, 235, 233))
+    } else {
+        (Color::Rgb(26, 58, 36), Color::Rgb(74, 30, 34))
     }
 }
 
@@ -291,6 +355,7 @@ impl AppComponent<Msg, NoUserEvent> for CodeView {
             (Key::Esc, _) => return Some(Msg::ClearSelection),
             (Key::Char('c'), false) => return Some(Msg::AddNote),
             (Key::Char('d'), false) => return Some(Msg::AskDeleteNote),
+            (Key::Char('r'), false) => return Some(Msg::RefreshDiff),
             (Key::Char('/'), false) => return Some(Msg::OpenPopup(Popup::FindInFile)),
             (Key::Char('n'), false) => return Some(Msg::FindNext),
             (Key::Char('N'), false) => return Some(Msg::FindPrev),

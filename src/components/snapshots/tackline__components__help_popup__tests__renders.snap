@@ -22,6 +22,8 @@ expression: "render_to_string(&mut HelpPopup::default(),\nSize::new(size.width, 
 │ d               Delete the note on this line                  │
 │ Note: Enter     Save (Shift+Enter or Ctrl+J: newline)         │
 │ Esc             Clear the selection                           │
+│ Diff: j k       Previous / next changed file                  │
+│ Diff: r         Reload the diff                               │
 │ Session: j k    Select note                                   │
 │ Session: Enter  Jump to the note                              │
 │ Session: y      Copy the compiled prompt                      │

@@ -11,7 +11,7 @@ use crossterm::event::{
 use tuirealm::application::{Application, PollStrategy};
 use tuirealm::event::NoUserEvent;
 use tuirealm::listener::EventListenerCfg;
-use tuirealm::props::{AttrValue, Attribute, PropBound, PropPayload, PropValue, Title};
+use tuirealm::props::{AttrValue, Attribute, PropBound, PropPayload, PropValue};
 use tuirealm::ratatui::Frame;
 use tuirealm::ratatui::text::Text;
 use tuirealm::ratatui::widgets::Clear;
@@ -19,6 +19,7 @@ use tuirealm::terminal::{CrosstermTerminalAdapter, TerminalAdapter};
 
 use super::{Id, Model, Msg, Popup, layout};
 use crate::components::code_view::CodeView;
+use crate::components::diff_view::DiffFiles;
 use crate::components::file_tree::{FileTree, MARKED, build_tree};
 use crate::components::finder_popup::{self, PickerResults, QueryInput};
 use crate::components::help_popup::{self, HelpPopup};
@@ -28,7 +29,7 @@ use crate::components::session_picker::{self, SessionPicker};
 use crate::components::session_view::SessionView;
 use crate::components::status_bar::{self, StatusBar};
 use crate::components::toast::{self, Toast};
-use crate::components::{Placeholder, borders, centered};
+use crate::components::{borders, centered};
 use crate::model::View;
 use crate::search::files::walk;
 
@@ -126,7 +127,7 @@ fn mount(root: &Path, listener: EventListenerCfg<NoUserEvent>) -> Result<App> {
     app.mount(Id::FileTree, Box::new(FileTree::new(tree)), vec![])?;
     app.mount(Id::CodeView, Box::new(CodeView::default()), vec![])?;
     app.mount(Id::SessionView, Box::new(SessionView::default()), vec![])?;
-    app.mount(Id::Placeholder, Box::new(Placeholder::default()), vec![])?;
+    app.mount(Id::DiffFiles, Box::new(DiffFiles::default()), vec![])?;
     app.mount(Id::StatusBar, Box::new(StatusBar::default()), vec![])?;
     app.mount(Id::Help, Box::new(HelpPopup::default()), vec![])?;
     app.mount(Id::NameInput, Box::new(NameInput::default()), vec![])?;
@@ -243,12 +244,10 @@ fn sync(model: &mut Model, app: &mut App, opened: Option<Popup>, shift_enter: bo
     let status = status_bar::spans(model.view, session, model.location());
     app.attr(&Id::StatusBar, Attribute::Text, status_bar::attr(status))?;
     app.attr(
-        &Id::Placeholder,
-        Attribute::Title,
-        AttrValue::Title(Title::from(" Diff ")),
+        &Id::DiffFiles,
+        Attribute::Value,
+        any(model.diff_list_props()),
     )?;
-    let text = Text::from("The Diff view lands in milestone 6.");
-    app.attr(&Id::Placeholder, Attribute::Text, AttrValue::Text(text))?;
     if let Some(t) = &model.toast {
         app.attr(
             &Id::Toast,
@@ -274,7 +273,10 @@ fn draw(app: &mut App, model: &Model, f: &mut Frame) {
             app.view(&Id::CodeView, f, areas.code);
         }
         View::Session => app.view(&Id::SessionView, f, areas.main),
-        View::Diff => app.view(&Id::Placeholder, f, areas.main),
+        View::Diff => {
+            app.view(&Id::DiffFiles, f, areas.tree);
+            app.view(&Id::CodeView, f, areas.code);
+        }
     }
     app.view(&Id::StatusBar, f, areas.status);
     let popup = match model.popup {
@@ -356,10 +358,27 @@ mod tests {
 
         m.update(Msg::OpenPopup(Popup::Help));
         insta::assert_snapshot!("frame_help", frame(&mut m, None));
+    }
 
-        m.update(Msg::ClosePopup);
-        m.update(Msg::ShowView(View::Diff));
-        insta::assert_snapshot!("frame_diff_placeholder", frame(&mut m, None));
+    #[test]
+    fn diff_frames() {
+        let repo = crate::testutil::fixture_repo();
+        std::fs::write(
+            repo.path().join("src/matcher.rs"),
+            "pub fn matches() -> Vec<String> {\n    Vec::new()\n}\n",
+        )
+        .unwrap();
+        let mut m = model(repo.path()).with_git(None);
+        m.update(Msg::Resize(80, 14));
+        insta::assert_snapshot!("frame_diff_list", frame(&mut m, None));
+        m.update(Msg::DiffMove(1));
+        m.update(Msg::ToggleFocus);
+        m.update(Msg::NewSession("S".into()));
+        m.update(Msg::DismissToast);
+        m.update(Msg::AddNote);
+        m.update(Msg::SaveNote("note on an added line".into()));
+        m.update(Msg::DismissToast);
+        insta::assert_snapshot!("frame_diff_note", frame(&mut m, None));
     }
 
     #[test]

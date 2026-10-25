@@ -73,6 +73,7 @@ pub fn fixture_repo() -> Fixture {
     index
         .add_all(["*"], git2::IndexAddOption::DEFAULT, None)
         .unwrap();
+    index.write().unwrap();
     let tree = repo.find_tree(index.write_tree().unwrap()).unwrap();
     let sig = git2::Signature::now("Test", "test@example.com").unwrap();
     repo.commit(Some("HEAD"), &sig, &sig, "initial", &tree, &[])
