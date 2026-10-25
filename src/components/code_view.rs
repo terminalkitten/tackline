@@ -13,7 +13,7 @@ use tuirealm::ratatui::widgets::{Block, BorderType, Paragraph};
 use tuirealm::state::State;
 use two_face::re_exports::syntect::highlighting::Theme;
 
-use super::{global_key, key, wheel};
+use super::{global_key, key, mouse};
 use crate::app::{Motion, Msg, Popup, SelectionKind};
 use crate::git::{Row, RowKind};
 use crate::highlight::color;
@@ -49,19 +49,21 @@ pub fn gutter_width(total_lines: usize) -> usize {
 
 pub struct Input<'a> {
     pub title: String,
-    /// Highlighted lines from `first_line` on, one per visible row.
+    /// Highlighted lines from `first_line` on.
     pub highlighted: &'a [Line<'static>],
     /// 0-based.
     pub first_line: usize,
     pub total_lines: usize,
-    /// First visible display column.
-    pub left: usize,
+    /// What each screen row shows: (line, first display column).
+    pub rows: &'a [(usize, usize)],
+    /// Rows starting past column 0 continue a wrapped line.
+    pub wrap: bool,
     /// Visible code columns.
     pub width: usize,
     /// Cursor as (line, display column), when it should be drawn.
     pub cursor: Option<(usize, usize)>,
     pub current_line: usize,
-    /// Diff rows for the visible lines, when showing a diff.
+    /// Diff rows from `first_line` on, when showing a diff.
     pub diff: Option<&'a [Row]>,
     /// Width of each line number column in a diff.
     pub diff_digits: usize,
@@ -121,16 +123,24 @@ pub fn build(input: Input) -> CodeProps {
     };
 
     let rows = input
-        .highlighted
+        .rows
         .iter()
-        .enumerate()
-        .map(|(i, line)| {
-            let n = input.first_line + i;
+        .map(|&(n, from)| {
+            let i = n - input.first_line;
+            let line = &input.highlighted[i];
             let row = input.diff.map(|d| &d[i]);
             let cursor = input.cursor.filter(|(l, _)| *l == n).map(|(_, x)| x);
             let marker = marker(input.marks, n);
             let sel = input.selection.and_then(|s| s.cols(n));
+            let continued = input.wrap && from > 0;
             let mut spans = match row {
+                _ if continued => {
+                    let width = match input.diff {
+                        Some(_) => diff_gutter_width(digits) - 2,
+                        None => digits + 1,
+                    };
+                    vec![Span::raw(" ".repeat(width)), marker]
+                }
                 None => vec![Span::styled(format!("{:>digits$} ", n + 1), gutter), marker],
                 Some(row) => {
                     let num = |n: Option<u32>| n.map_or(String::new(), |n| n.to_string());
@@ -154,14 +164,7 @@ pub fn build(input: Input) -> CodeProps {
                 }
                 _ => line,
             };
-            spans.extend(visible(
-                line,
-                input.left,
-                input.width,
-                cursor,
-                sel,
-                selected,
-            ));
+            spans.extend(visible(line, from, input.width, cursor, sel, selected));
             let out = Line::from(spans);
             let diff_bg = match row.map(|r| r.kind) {
                 Some(RowKind::Added) => Some(added),
@@ -340,7 +343,7 @@ pub struct CodeView {
 
 impl AppComponent<Msg, NoUserEvent> for CodeView {
     fn on(&mut self, ev: &Event<NoUserEvent>) -> Option<Msg> {
-        if let Some(msg) = wheel(ev) {
+        if let Some(msg) = mouse(ev) {
             return Some(msg);
         }
         // Shift+arrows select: up/down by line, left/right by char.
@@ -373,6 +376,8 @@ impl AppComponent<Msg, NoUserEvent> for CodeView {
             (Key::Char('c'), false) => return Some(Msg::AddNote),
             (Key::Char('d'), false) => return Some(Msg::AskDeleteNote),
             (Key::Char('r'), false) => return Some(Msg::RefreshDiff),
+            (Key::Char('w'), false) => return Some(Msg::ToggleWrap),
+            (Key::Char(':'), false) => return Some(Msg::OpenPopup(Popup::GotoLine)),
             (Key::Char('/'), false) => return Some(Msg::OpenPopup(Popup::FindInFile)),
             (Key::Char('n'), false) => return Some(Msg::FindNext),
             (Key::Char('N'), false) => return Some(Msg::FindPrev),

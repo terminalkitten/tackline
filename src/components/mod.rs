@@ -13,7 +13,7 @@ pub mod session_view;
 pub mod status_bar;
 pub mod toast;
 
-use tuirealm::event::{Event, Key, KeyModifiers, MouseEventKind, NoUserEvent};
+use tuirealm::event::{Event, Key, KeyModifiers, MouseButton, MouseEventKind, NoUserEvent};
 use tuirealm::props::{BorderType, Borders, Color};
 use tuirealm::ratatui::layout::{Constraint, Flex, Layout, Rect};
 
@@ -26,19 +26,25 @@ pub fn key(ev: &Event<NoUserEvent>) -> Option<(Key, bool)> {
     Some((k.code, k.modifiers.contains(KeyModifiers::CONTROL)))
 }
 
-/// Mouse wheel / trackpad scroll, routed by the model from its position.
-pub fn wheel(ev: &Event<NoUserEvent>) -> Option<Msg> {
+/// Wheel, click and drag; the model routes them by screen position.
+pub fn mouse(ev: &Event<NoUserEvent>) -> Option<Msg> {
     let Event::Mouse(m) = ev else { return None };
-    let lines = match m.kind {
-        MouseEventKind::ScrollDown => WHEEL_LINES,
-        MouseEventKind::ScrollUp => -WHEEL_LINES,
-        _ => return None,
-    };
-    Some(Msg::Wheel {
-        col: m.column,
-        row: m.row,
-        lines,
-    })
+    let (col, row) = (m.column, m.row);
+    match m.kind {
+        MouseEventKind::ScrollDown => Some(Msg::Wheel {
+            col,
+            row,
+            lines: WHEEL_LINES,
+        }),
+        MouseEventKind::ScrollUp => Some(Msg::Wheel {
+            col,
+            row,
+            lines: -WHEEL_LINES,
+        }),
+        MouseEventKind::Down(MouseButton::Left) => Some(Msg::Click { col, row }),
+        MouseEventKind::Drag(MouseButton::Left) => Some(Msg::Drag { col, row }),
+        _ => None,
+    }
 }
 
 /// Lines per wheel step.

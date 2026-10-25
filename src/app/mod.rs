@@ -67,6 +67,8 @@ pub enum Popup {
     Search,
     /// `/`
     FindInFile,
+    /// `:`
+    GotoLine,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -156,6 +158,17 @@ pub enum Msg {
     /// `n` / `N` after `/`.
     FindNext,
     FindPrev,
+    /// Left click / drag at a screen position.
+    Click {
+        col: u16,
+        row: u16,
+    },
+    Drag {
+        col: u16,
+        row: u16,
+    },
+    /// `w`: soft wrap on/off.
+    ToggleWrap,
     /// Mouse wheel at a screen position; `lines` > 0 scrolls down.
     Wheel {
         col: u16,
@@ -243,6 +256,8 @@ pub struct Model {
     /// `c` with no sessions: open the note popup once one is named.
     note_after_new_session: bool,
     pub picker: Option<Picker>,
+    /// `w`: soft-wrap long lines in the code pane.
+    pub wrap: bool,
     /// Last `/` query.
     pub find: Option<String>,
     /// Inside a git repo: the Diff view works.
@@ -300,6 +315,7 @@ impl Model {
             marks: Vec::new(),
             note_after_new_session: false,
             picker: None,
+            wrap: false,
             find: None,
             git: false,
             base: None,
@@ -341,7 +357,9 @@ impl Model {
             (Some(Popup::SessionPicker), ..) => Id::SessionPicker,
             (Some(Popup::Note), ..) => Id::NoteText,
             (Some(Popup::ConfirmDelete | Popup::Gitignore), ..) => Id::Confirm,
-            (Some(Popup::Finder | Popup::Search | Popup::FindInFile), ..) => Id::QueryInput,
+            (Some(Popup::Finder | Popup::Search | Popup::FindInFile | Popup::GotoLine), ..) => {
+                Id::QueryInput
+            }
             (None, View::Files, Focus::Tree) => Id::FileTree,
             (None, View::Diff, Focus::Tree) => Id::DiffFiles,
             (None, View::Files | View::Diff, Focus::Code) => Id::CodeView,
@@ -387,7 +405,7 @@ impl Model {
             Msg::ShowView(view) => self.show_view(view),
             Msg::OpenPopup(Popup::Finder) => self.open_picker(PickerKind::Files),
             Msg::OpenPopup(Popup::Search) => self.open_picker(PickerKind::Code),
-            Msg::OpenPopup(Popup::FindInFile) if self.lines().is_none() => {}
+            Msg::OpenPopup(Popup::FindInFile | Popup::GotoLine) if self.lines().is_none() => {}
             Msg::OpenPopup(popup) => self.popup = Some(popup),
             Msg::ClosePopup => {
                 self.popup = None;
@@ -425,6 +443,12 @@ impl Model {
             Msg::PickerMove(step) => self.picker_move(step),
             Msg::FindNext => self.find_next(true),
             Msg::Wheel { col, row, lines } => self.wheel(col, row, lines),
+            Msg::Click { col, row } => self.click(col, row),
+            Msg::Drag { col, row } => self.drag(col, row),
+            Msg::ToggleWrap => {
+                self.wrap = !self.wrap;
+                self.scroll_to_cursor();
+            }
             Msg::DiffMove(step) => self.diff_move(step),
             Msg::RefreshDiff if self.view == View::Diff => self.refresh_diff(),
             Msg::RefreshDiff => {}
@@ -556,6 +580,64 @@ impl Model {
         }
     }
 
+    /// The (line, char column) under a screen position in the code pane.
+    fn cell_at(&self, col: u16, row: u16) -> Option<(usize, usize)> {
+        let lines = self.lines()?;
+        let code = layout(Rect::new(0, 0, self.size.0, self.size.1)).code;
+        let (rows, cols) = self.viewport();
+        let gutter = (code.width.saturating_sub(2) as usize).saturating_sub(cols);
+        let r = row.checked_sub(code.y + 1)? as usize;
+        let screen = screen_rows(lines, self.top, self.left, rows, cols, self.wrap);
+        let &(line, from) = screen.get(r.min(screen.len().checked_sub(1)?))?;
+        let x = (col as usize).saturating_sub(code.x as usize + 1 + gutter);
+        Some((line, char_at(&lines[line], from + x)))
+    }
+
+    fn click(&mut self, col: u16, row: u16) {
+        let areas = layout(Rect::new(0, 0, self.size.0, self.size.1));
+        let at = tuirealm::ratatui::layout::Position::new(col, row);
+        match self.view {
+            View::Files | View::Diff if areas.code.contains(at) => {
+                self.focus = Focus::Code;
+                if let Some((line, col)) = self.cell_at(col, row) {
+                    self.cursor = Cursor { line, col };
+                    self.selection = None;
+                }
+            }
+            View::Diff if areas.tree.contains(at) => {
+                self.focus = Focus::Tree;
+                let scroll = self.diff_list_props().scroll as usize;
+                if let Some(r) = row.checked_sub(areas.tree.y + 1) {
+                    let i = r as usize + scroll;
+                    if i < self.diff.len() {
+                        self.diff_selected = i;
+                        self.open_diff();
+                    }
+                }
+            }
+            View::Files if areas.tree.contains(at) => self.focus = Focus::Tree,
+            _ => {}
+        }
+    }
+
+    /// Drag in the code pane: a charwise selection from where it started.
+    fn drag(&mut self, col: u16, row: u16) {
+        if !matches!(self.view, View::Files | View::Diff) || self.focus != Focus::Code {
+            return;
+        }
+        let Some((line, col)) = self.cell_at(col, row) else {
+            return;
+        };
+        if self.selection.is_none() {
+            self.selection = Some(Selection {
+                kind: SelectionKind::Char,
+                anchor: self.cursor,
+            });
+        }
+        self.cursor = Cursor { line, col };
+        self.scroll_to_cursor();
+    }
+
     /// Scroll the view without moving the cursor, except to keep it on screen.
     fn scroll_lines(&mut self, lines: isize) {
         let Some(text) = self.lines() else { return };
@@ -602,8 +684,19 @@ impl Model {
         let (rows, cols) = self.viewport();
         let x = display_col(&lines[self.cursor.line], self.cursor.col);
         let line = self.cursor.line;
-        self.top = self.top.clamp(line.saturating_sub(rows - 1), line);
-        self.left = self.left.clamp((x + 1).saturating_sub(cols), x);
+        if !self.wrap {
+            self.top = self.top.clamp(line.saturating_sub(rows - 1), line);
+            self.left = self.left.clamp((x + 1).saturating_sub(cols), x);
+            return;
+        }
+        // Wrapped: lines take several rows; scroll until the cursor's row fits.
+        let mut top = self.top.min(line);
+        let height = |l: usize| wrapped_height(&lines[l], cols);
+        while top < line && (top..line).map(height).sum::<usize>() + x / cols >= rows {
+            top += 1;
+        }
+        self.top = top;
+        self.left = 0;
     }
 
     /// Everything the code pane shows; highlights the visible lines on demand.
@@ -624,7 +717,8 @@ impl Model {
                 Highlighted::new(&file.path, &lines[0], &self.theme),
             )
         });
-        let end = (self.top + rows).min(lines.len());
+        let screen = screen_rows(lines, self.top, self.left, rows, cols, self.wrap);
+        let end = screen.last().map_or(self.top, |(l, _)| l + 1);
         hl.ensure(
             lines,
             end.min(hl.lines.len() + HIGHLIGHT_BATCH),
@@ -642,7 +736,8 @@ impl Model {
             highlighted: &visible,
             first_line: self.top,
             total_lines: lines.len(),
-            left: self.left,
+            rows: &screen,
+            wrap: self.wrap,
             width: cols,
             cursor: Some(self.cursor.line)
                 .filter(|_| focused)
@@ -686,6 +781,43 @@ impl Model {
             self.cursor.col + 1
         ))
     }
+}
+
+/// Screen rows of the code pane as (line, first display column): one per
+/// line from `left`, or with `wrap`, one per `cols`-wide piece of each line.
+pub fn screen_rows(
+    lines: &[String],
+    top: usize,
+    left: usize,
+    rows: usize,
+    cols: usize,
+    wrap: bool,
+) -> Vec<(usize, usize)> {
+    let lines_shown = (top..lines.len()).take(rows);
+    if !wrap {
+        return lines_shown.map(|l| (l, left)).collect();
+    }
+    lines_shown
+        .flat_map(|l| (0..wrapped_height(&lines[l], cols)).map(move |k| (l, k * cols)))
+        .take(rows)
+        .collect()
+}
+
+/// Rows a line takes when wrapped at `cols`.
+fn wrapped_height(line: &str, cols: usize) -> usize {
+    display_col(line, usize::MAX).div_ceil(cols).max(1)
+}
+
+/// The char at display column `x` in `line` (the last char past the end).
+fn char_at(line: &str, x: usize) -> usize {
+    let mut width = 0;
+    for (i, c) in line.chars().enumerate() {
+        width += if c == '\t' { TAB.len() } else { 1 };
+        if width > x {
+            return i;
+        }
+    }
+    line.chars().count().saturating_sub(1)
 }
 
 /// Display column of char `col` in `line`, with tabs as `TAB`.
@@ -826,6 +958,61 @@ mod tests {
             lines: -3,
         });
         assert_eq!(m.top, 91);
+    }
+
+    #[test]
+    fn wrap_shows_long_lines_on_several_rows() {
+        let repo = fixture_repo();
+        let mut m = model(repo.path());
+        // 60x12: tree 30, code pane 30 → 28 inside, gutter 4 → 24 columns.
+        m.update(Msg::Resize(60, 12));
+        m.update(Msg::OpenFile("src/matcher.rs".into()));
+        m.update(Msg::ToggleWrap);
+        let rows: Vec<String> = m.code_props().rows.iter().map(|r| r.to_string()).collect();
+        assert_eq!(rows[0], "1   pub fn matches(query: &s");
+        assert_eq!(rows[1], "    tr, items: &[String]) ->");
+        assert_eq!(rows[2], "     Vec<String> {");
+        assert_eq!(rows[3], "2       let mut out = Vec::n");
+        // End of the long line: no horizontal scroll while wrapped.
+        m.update(Msg::Move(Motion::LineEnd));
+        assert_eq!((m.left, m.top), (0, 0));
+        // The last line still fits: 9 lines take 11 rows, so the top moves 2.
+        m.update(Msg::Move(Motion::Bottom));
+        assert_eq!(m.top, 2);
+    }
+
+    #[test]
+    fn click_and_drag() {
+        let repo = fixture_repo();
+        let mut m = model(repo.path());
+        m.update(Msg::OpenFile("src/matcher.rs".into()));
+        m.update(Msg::ToggleFocus);
+        assert_eq!(m.focus, Focus::Tree);
+        // Code pane at x=32: border 1 + gutter 4 → text starts at x=37, y=1.
+        m.update(Msg::Click {
+            col: 37 + 4,
+            row: 1 + 2,
+        });
+        assert_eq!(
+            (m.focus, m.cursor),
+            (Focus::Code, Cursor { line: 2, col: 4 })
+        );
+        m.update(Msg::Drag {
+            col: 37 + 7,
+            row: 1 + 2,
+        });
+        m.update(Msg::Drag {
+            col: 37 + 20,
+            row: 1 + 2,
+        });
+        assert_eq!(m.selection.unwrap().anchor, Cursor { line: 2, col: 4 });
+        assert_eq!(m.cursor, Cursor { line: 2, col: 20 });
+        // Past the end of the line: the last char.
+        m.update(Msg::Click {
+            col: 79,
+            row: 1 + 1,
+        });
+        assert_eq!((m.cursor, m.selection), (Cursor { line: 1, col: 28 }, None));
     }
 
     #[test]

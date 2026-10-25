@@ -79,6 +79,13 @@ impl Model {
                 self.find_next(true);
             }
             Some(Popup::Finder | Popup::Search) => self.picker_accept(query),
+            Some(Popup::GotoLine) => {
+                self.popup = None;
+                match query.trim().parse::<usize>() {
+                    Ok(n) if n > 0 => self.goto_line(n),
+                    _ => self.toast(ToastKind::Warning, "Type a line number"),
+                }
+            }
             _ => {}
         }
     }
@@ -126,6 +133,22 @@ impl Model {
         let line = line.min(lines.len() - 1);
         let col = col.min(lines[line].chars().count().saturating_sub(1));
         self.cursor = Cursor { line, col };
+        self.top = line.saturating_sub(self.viewport().0 / 2);
+        self.scroll_to_cursor();
+    }
+
+    /// `:<n>`: line `n` (1-based) in the open file; in a diff, the row
+    /// showing new-side line `n` or the first after it.
+    fn goto_line(&mut self, n: usize) {
+        let Some(lines) = self.lines() else { return };
+        let line = match self.file.as_ref().and_then(|f| f.diff.as_ref()) {
+            Some(rows) => rows
+                .iter()
+                .position(|r| r.new.is_some_and(|new| new as usize >= n))
+                .unwrap_or(rows.len() - 1),
+            None => n.min(lines.len()) - 1,
+        };
+        self.cursor = Cursor { line, col: 0 };
         self.top = line.saturating_sub(self.viewport().0 / 2);
         self.scroll_to_cursor();
     }
@@ -289,6 +312,24 @@ mod tests {
         m.update(Msg::OpenPopup(Popup::FindInFile));
         m.update(Msg::QueryEnter("ITEM".into()));
         assert_eq!(m.toast.as_ref().unwrap().text, "No match for \"ITEM\"");
+    }
+
+    #[test]
+    fn goto_line() {
+        let repo = fixture_repo();
+        let mut m = model(repo.path());
+        let body: String = (1..=300).map(|i| format!("line {i}\n")).collect();
+        std::fs::write(repo.path().join("long.txt"), body).unwrap();
+        m.update(Msg::OpenFile("long.txt".into()));
+        m.update(Msg::OpenPopup(Popup::GotoLine));
+        m.update(Msg::QueryEnter("120".into()));
+        assert_eq!((m.popup, m.cursor.line, m.top), (None, 119, 119 - 8));
+        m.update(Msg::OpenPopup(Popup::GotoLine));
+        m.update(Msg::QueryEnter("9999".into()));
+        assert_eq!(m.cursor.line, 299, "clamped");
+        m.update(Msg::OpenPopup(Popup::GotoLine));
+        m.update(Msg::QueryEnter("abc".into()));
+        assert_eq!(m.toast.as_ref().unwrap().kind, ToastKind::Warning);
     }
 
     #[test]

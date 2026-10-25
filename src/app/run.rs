@@ -11,7 +11,9 @@ use crossterm::event::{
 use tuirealm::application::{Application, PollStrategy};
 use tuirealm::event::NoUserEvent;
 use tuirealm::listener::EventListenerCfg;
-use tuirealm::props::{AttrValue, Attribute, PropBound, PropPayload, PropValue};
+use tuirealm::props::{
+    AttrValue, Attribute, HorizontalAlignment, PropBound, PropPayload, PropValue, Title,
+};
 use tuirealm::ratatui::Frame;
 use tuirealm::ratatui::text::Text;
 use tuirealm::ratatui::widgets::Clear;
@@ -193,18 +195,18 @@ fn sync(model: &mut Model, app: &mut App, opened: Option<Popup>, shift_enter: bo
                 app.attr(&Id::Confirm, attr, value)?;
             }
         }
-        Some(Popup::Finder | Popup::Search | Popup::FindInFile) => {
+        Some(p @ (Popup::Finder | Popup::Search | Popup::FindInFile | Popup::GotoLine)) => {
             let kind = model.picker.as_ref().map(|p| p.kind);
+            let title = match p {
+                Popup::GotoLine => Title::from(" Go to line ").alignment(HorizontalAlignment::Left),
+                _ => finder_popup::title_attr(kind),
+            };
             app.attr(
                 &Id::QueryInput,
                 Attribute::Value,
                 AttrValue::String(String::new()),
             )?;
-            app.attr(
-                &Id::QueryInput,
-                Attribute::Title,
-                AttrValue::Title(finder_popup::title_attr(kind)),
-            )?;
+            app.attr(&Id::QueryInput, Attribute::Title, AttrValue::Title(title))?;
         }
         _ => {}
     }
@@ -295,7 +297,9 @@ fn draw(app: &mut App, model: &Model, f: &mut Frame) {
         Some(p @ (Popup::ConfirmDelete | Popup::Gitignore)) => {
             Some((Id::Confirm, confirm::area(screen, p)))
         }
-        Some(Popup::FindInFile) => Some((Id::QueryInput, finder_popup::find_area(areas.code))),
+        Some(Popup::FindInFile | Popup::GotoLine) => {
+            Some((Id::QueryInput, finder_popup::find_area(areas.code)))
+        }
         Some(Popup::Note | Popup::Finder | Popup::Search) | None => None,
     };
     if let Some((id, area)) = popup {

@@ -8,7 +8,7 @@ use tuirealm::ratatui::style::{Color, Modifier, Style};
 use tuirealm::ratatui::text::{Line, Span};
 
 use super::code_view::{CodeProps, Rows};
-use super::{global_key, key, wheel};
+use super::{global_key, key, mouse};
 use crate::app::Msg;
 use crate::model::Span as NoteSpan;
 
@@ -106,7 +106,7 @@ pub struct SessionView {
 
 impl AppComponent<Msg, NoUserEvent> for SessionView {
     fn on(&mut self, ev: &Event<NoUserEvent>) -> Option<Msg> {
-        if let Some(msg) = wheel(ev) {
+        if let Some(msg) = mouse(ev) {
             return Some(msg);
         }
         match key(ev)? {

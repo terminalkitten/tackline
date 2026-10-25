@@ -16,6 +16,9 @@ expression: "render_to_string(&mut HelpPopup::default(),\nSize::new(size.width, 
 │ gg / G          Top / bottom                                  │
 │ Ctrl+D / Ctrl+U Half page down / up                           │
 │ 0 / $           Line start / end                              │
+│ :<n>            Go to line n                                  │
+│ w               Wrap long lines on / off                      │
+│ Mouse           Click: cursor · drag: select · wheel          │
 │ v / V           Select chars / lines (again: stop)            │
 │ Shift+arrows    Select lines (↑↓) or chars (←→)               │
 │ c               Note the selection or line (or open its note) │
