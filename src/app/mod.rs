@@ -769,6 +769,9 @@ impl Model {
     /// `src/main.rs 12:4`, 1-based.
     pub fn location(&self) -> Option<String> {
         let file = self.file.as_ref()?;
+        if self.lines().is_none() {
+            return Some(file.path.display().to_string());
+        }
         if let Some(rows) = &file.diff {
             let row = rows.get(self.cursor.line)?;
             return Some(match (row.new, row.old) {

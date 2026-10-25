@@ -84,8 +84,14 @@ impl Model {
             self.marks.clear();
             return;
         };
+        // The code pane needs at least one line: changes without any (a new
+        // empty file, a mode change) get a message, like binary files.
         let content = if f.binary {
             Content::Placeholder("Binary file changed".to_string())
+        } else if f.rows.is_empty() {
+            Content::Placeholder(
+                "No line changes (an empty file, or only its mode changed)".to_string(),
+            )
         } else {
             Content::Text(f.rows.iter().map(|r| r.text.clone()).collect())
         };
@@ -93,7 +99,7 @@ impl Model {
             path: f.path.clone(),
             content,
             mtime: None,
-            diff: (!f.binary).then(|| f.rows.clone()),
+            diff: (!f.binary && !f.rows.is_empty()).then(|| f.rows.clone()),
         };
         // The diff may have changed: highlight it afresh.
         self.highlights.remove(&file.key());
@@ -319,6 +325,55 @@ mod tests {
                 .contains(".tackline/")
         );
         assert!(m.store.load_state().unwrap().gitignore_asked);
+    }
+
+    #[test]
+    fn changes_without_lines_dont_crash() {
+        let repo = fixture_repo();
+        let root = repo.path();
+        let mut m = model(root, None);
+        // A new empty file and a mode-only change: in the diff, but no lines.
+        fs::write(root.join("empty.txt"), "").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let path = root.join("scripts/score.py");
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        m.update(Msg::RefreshDiff);
+        for i in 0..m.diff.len() {
+            m.diff_selected = i;
+            m.update(Msg::DiffMove(0));
+            m.open_diff();
+            m.code_props();
+            for msg in [
+                Msg::Move(Motion::Down),
+                Msg::Move(Motion::Bottom),
+                Msg::AddNote,
+                Msg::ClosePopup,
+            ] {
+                m.update(msg);
+            }
+            m.update(Msg::OpenPopup(Popup::GotoLine));
+            m.update(Msg::QueryEnter("3".into()));
+            m.update(Msg::Wheel {
+                col: 50,
+                row: 5,
+                lines: 3,
+            });
+            m.update(Msg::ToggleWrap);
+            m.code_props();
+            m.update(Msg::ToggleWrap);
+        }
+        let empty = m
+            .diff
+            .iter()
+            .position(|f| f.path == Path::new("empty.txt"))
+            .unwrap();
+        m.diff_selected = empty;
+        m.open_diff();
+        assert_eq!(m.location().as_deref(), Some("empty.txt"));
+        m.update(Msg::RefreshDiff);
     }
 
     #[test]
