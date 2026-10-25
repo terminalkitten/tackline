@@ -15,12 +15,12 @@ targets = ["aarch64-apple-darwin", "aarch64-unknown-linux-gnu", "x86_64-apple-da
 install-path = "CARGO_HOME"
 # Whether to install an updater program
 install-updater = false
-# Homebrew formula goes to this tap (`brew install terminalkitten/tap/tackline`).
-tap = "terminalkitten/homebrew-tap"
+# The release gets a tackline.rb; it's copied to Formula/ in this repo, which is
+# the tap (see Releasing in the README).
 # Our own jobs: the first waits for approval, tests, and opens a draft release
 # with the grouped notes; dist uploads to that draft and publishes it at the end.
 plan-jobs = ["./draft-release"]
-publish-jobs = ["homebrew", "./publish-crates"]
+publish-jobs = ["./publish-crates"]
 create-release = false
 # Trusted publishing needs id-token; checkout needs contents.
 github-custom-job-permissions = { "publish-crates" = { contents = "read", id-token = "write" }, "draft-release" = { contents = "write" } }

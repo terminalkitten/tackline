@@ -18,10 +18,12 @@ Linux) into `~/.cargo/bin` and adds that to your `PATH`. Open a new terminal aft
 :::
 :::tab[Homebrew]
 ```sh
-brew install terminalkitten/tap/tackline
+brew tap terminalkitten/tackline https://github.com/terminalkitten/tackline
+brew install terminalkitten/tackline/tackline
 ```
 
-Update with `brew upgrade tackline`.
+The tap is the tackline repository itself, so the first command is needed once. Update with
+`brew upgrade tackline`.
 :::
 :::tab[Windows]
 In PowerShell:

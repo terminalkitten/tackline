@@ -35,7 +35,8 @@ cat <<'MD'
 # macOS, Linux
 curl --proto '=https' --tlsv1.2 -LsSf https://github.com/terminalkitten/tackline/releases/latest/download/tackline-installer.sh | sh
 # Homebrew
-brew install terminalkitten/tap/tackline
+brew tap terminalkitten/tackline https://github.com/terminalkitten/tackline
+brew install terminalkitten/tackline/tackline
 # Windows (PowerShell)
 powershell -ExecutionPolicy Bypass -c "irm https://github.com/terminalkitten/tackline/releases/latest/download/tackline-installer.ps1 | iex"
 # Cargo
