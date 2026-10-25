@@ -6,7 +6,7 @@ use tuirealm::ratatui::style::{Color, Modifier, Style};
 use tuirealm::ratatui::text::Span;
 
 use crate::app::Msg;
-use crate::model::View;
+use crate::model::{View, note_count};
 
 /// View, active session, file and cursor, key hints.
 pub fn spans(
@@ -20,8 +20,7 @@ pub fn spans(
         View::Session => " SESSION ",
     };
     let session = match session {
-        Some((name, 1)) => format!(" {name} (1 note) "),
-        Some((name, n)) => format!(" {name} ({n} notes) "),
+        Some((name, n)) => format!(" {name} ({}) ", note_count(n)),
         None => " no session ".to_string(),
     };
     let dim = Style::new().fg(Color::DarkGray);

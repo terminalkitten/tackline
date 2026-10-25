@@ -40,7 +40,7 @@ fn main() -> Result<()> {
                 let names: Vec<_> = highlight::theme_names().collect();
                 bail!("unknown theme; available: {}", names.join(", "));
             };
-            let model = app::Model::new(root, theme, store.load_sessions()?, store.load_state()?);
+            let model = app::Model::new(root.clone(), theme, Box::new(FsStore::new(&root)))?;
             app::run(model)?;
         }
         Some(Command::Sessions) => {

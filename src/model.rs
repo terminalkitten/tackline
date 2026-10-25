@@ -82,6 +82,14 @@ impl Span {
         self.start_col.zip(self.end_col)
     }
 
+    /// UI form: `L88-95`, `L88` or `L12:4-L12:30`.
+    pub fn ui_label(&self) -> String {
+        match self.cols() {
+            Some((sc, ec)) => format!("L{}:{sc}-L{}:{ec}", self.start_line, self.end_line),
+            None => format!("L{}", self.label()),
+        }
+    }
+
     /// `88-95`, `88` or `12:4-12:30`.
     pub fn label(&self) -> String {
         match self.cols() {
@@ -100,6 +108,15 @@ pub struct Anchor {
     pub before: String,
     /// Up to 2 lines after the selection.
     pub after: String,
+}
+
+/// `1 note`, `3 notes`.
+pub fn note_count(n: usize) -> String {
+    if n == 1 {
+        "1 note".into()
+    } else {
+        format!("{n} notes")
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

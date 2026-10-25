@@ -1,0 +1,18 @@
+---
+source: src/app/run.rs
+expression: "frame(&mut m, None)"
+---
+╭ Session ─────────────────────────────────────────────────────────────────────╮
+│No active session. Ctrl+N creates one, Ctrl+O picks one.                      │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+ SESSION  no session  │ ? help  q quit

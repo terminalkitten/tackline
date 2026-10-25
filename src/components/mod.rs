@@ -3,14 +3,19 @@
 pub mod code_view;
 pub mod file_tree;
 pub mod help_popup;
+pub mod name_input;
+pub mod session_picker;
+pub mod session_view;
 pub mod status_bar;
+pub mod toast;
 
 use tui_realm_stdlib::components::Paragraph;
 use tuirealm::component::{AppComponent, Component};
 use tuirealm::event::{Event, Key, KeyModifiers, NoUserEvent};
 use tuirealm::props::{BorderType, Borders, Color};
+use tuirealm::ratatui::layout::{Constraint, Flex, Layout, Rect};
 
-use crate::app::Msg;
+use crate::app::{Msg, Popup};
 use crate::model::View;
 
 /// The key and whether Ctrl is held. Shift is already in the char (`G`, `?`).
@@ -25,10 +30,23 @@ pub fn global_key(ev: &Event<NoUserEvent>) -> Option<Msg> {
         (Key::Char('1'), false) => Some(Msg::ShowView(View::Files)),
         (Key::Char('2'), false) => Some(Msg::ShowView(View::Diff)),
         (Key::Char('3'), false) => Some(Msg::ShowView(View::Session)),
-        (Key::Char('?'), false) => Some(Msg::ToggleHelp),
+        (Key::Char('?'), false) => Some(Msg::OpenPopup(Popup::Help)),
+        (Key::Char('n'), true) => Some(Msg::OpenPopup(Popup::NewSession)),
+        (Key::Char('o'), true) => Some(Msg::OpenPopup(Popup::SessionPicker)),
         (Key::Char('q'), false) => Some(Msg::Quit),
         _ => None,
     }
+}
+
+/// A `width` × `height` box in the middle of `screen`.
+pub fn centered(screen: Rect, width: u16, height: u16) -> Rect {
+    let [row] = Layout::vertical([Constraint::Length(height)])
+        .flex(Flex::Center)
+        .areas(screen);
+    let [area] = Layout::horizontal([Constraint::Length(width)])
+        .flex(Flex::Center)
+        .areas(row);
+    area
 }
 
 pub fn borders(focused: bool) -> Borders {

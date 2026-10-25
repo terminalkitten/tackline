@@ -1,0 +1,18 @@
+---
+source: src/app/run.rs
+expression: "frame(&mut m, Some(Popup::NewSession))"
+---
+╭ Session ─────────────────────────────────────────────────────────────────────╮
+│No active session. Ctrl+N creates one, Ctrl+O picks one.                      │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                 ╭ New session ─────────────────────────────╮                 │
+│                 │Name, then Enter                          │                 │
+│                 ╰──────────────────────────────────────────╯                 │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+ SESSION  no session  │ ? help  q quit

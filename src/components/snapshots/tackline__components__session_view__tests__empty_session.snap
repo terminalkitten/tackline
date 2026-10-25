@@ -1,0 +1,7 @@
+---
+source: src/components/session_view.rs
+expression: "render(props, Size::new(70, 3))"
+---
+╭ Session: Perf ─────────────────────────────────────────────────────╮
+│No notes yet. Select code in the Files view and press c.            │
+╰────────────────────────────────────────────────────────────────────╯

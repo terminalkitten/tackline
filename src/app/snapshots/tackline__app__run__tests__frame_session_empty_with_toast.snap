@@ -1,0 +1,18 @@
+---
+source: src/app/run.rs
+expression: "frame(&mut m, None)"
+---
+╭ Session: Perf ───────────────────────────────────────────────────────────────╮
+│No notes yet. Select code in the Files view and press c.                      │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                    ╭────────────────────────╮│
+│                                                    │Created session "Docs"  ││
+│                                                    ╰────────────────────────╯│
+╰──────────────────────────────────────────────────────────────────────────────╯
+ SESSION  Perf (0 notes)  │ ? help  q quit

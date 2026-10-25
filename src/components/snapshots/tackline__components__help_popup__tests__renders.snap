@@ -4,6 +4,8 @@ expression: "render_to_string(&mut HelpPopup::default(),\nSize::new(size.width, 
 ---
 ╭────────────────────── Keys ───────────────────────╮
 │ 1 / 2 / 3       Files / Diff / Session view       │
+│ Ctrl+N          New session                       │
+│ Ctrl+O          Pick the active session           │
 │ Tab             Switch tree ↔ code                │
 │ j k ↑ ↓         Move down / up                    │
 │ h l ← →         Tree: close / open · Code: column │
@@ -11,6 +13,9 @@ expression: "render_to_string(&mut HelpPopup::default(),\nSize::new(size.width, 
 │ gg / G          Top / bottom                      │
 │ Ctrl+D / Ctrl+U Half page down / up               │
 │ 0 / $           Line start / end                  │
+│ Session: j k    Select note                       │
+│ Session: Enter  Jump to the note                  │
+│ Session: y      Copy the compiled prompt          │
 │ ?               This help                         │
 │ q               Quit                              │
 ╰───────────────────────────────────────────────────╯

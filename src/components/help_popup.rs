@@ -2,15 +2,17 @@ use tui_realm_stdlib::components::Paragraph;
 use tuirealm::component::{AppComponent, Component};
 use tuirealm::event::{Event, Key, NoUserEvent};
 use tuirealm::props::{HorizontalAlignment, Title};
-use tuirealm::ratatui::layout::{Constraint, Flex, Layout, Rect};
+use tuirealm::ratatui::layout::Rect;
 use tuirealm::ratatui::text::{Line, Text};
 
-use super::{borders, key};
+use super::{borders, centered, key};
 use crate::app::Msg;
 
 /// Keys that work today; grows with each milestone.
 const KEYS: &[(&str, &str)] = &[
     ("1 / 2 / 3", "Files / Diff / Session view"),
+    ("Ctrl+N", "New session"),
+    ("Ctrl+O", "Pick the active session"),
     ("Tab", "Switch tree ↔ code"),
     ("j k ↑ ↓", "Move down / up"),
     ("h l ← →", "Tree: close / open · Code: column"),
@@ -18,6 +20,9 @@ const KEYS: &[(&str, &str)] = &[
     ("gg / G", "Top / bottom"),
     ("Ctrl+D / Ctrl+U", "Half page down / up"),
     ("0 / $", "Line start / end"),
+    ("Session: j k", "Select note"),
+    ("Session: Enter", "Jump to the note"),
+    ("Session: y", "Copy the compiled prompt"),
     ("?", "This help"),
     ("q", "Quit"),
 ];
@@ -29,13 +34,7 @@ pub fn area(screen: Rect) -> Rect {
         .map(|(_, d)| d.chars().count() + 20)
         .max()
         .unwrap_or(40) as u16;
-    let [row] = Layout::vertical([Constraint::Length(KEYS.len() as u16 + 2)])
-        .flex(Flex::Center)
-        .areas(screen);
-    let [area] = Layout::horizontal([Constraint::Length(width)])
-        .flex(Flex::Center)
-        .areas(row);
-    area
+    centered(screen, width, (KEYS.len() as u16 + 2).min(screen.height))
 }
 
 #[derive(Component)]
@@ -61,7 +60,7 @@ impl Default for HelpPopup {
 impl AppComponent<Msg, NoUserEvent> for HelpPopup {
     fn on(&mut self, ev: &Event<NoUserEvent>) -> Option<Msg> {
         match key(ev)? {
-            (Key::Esc | Key::Char('?') | Key::Char('q'), false) => Some(Msg::CloseHelp),
+            (Key::Esc | Key::Char('?') | Key::Char('q'), false) => Some(Msg::ClosePopup),
             _ => None,
         }
     }

@@ -23,6 +23,8 @@ pub struct CodeProps {
     pub title: String,
     pub rows: Vec<Line<'static>>,
     pub focused: bool,
+    /// Rows scrolled off the top.
+    pub scroll: u16,
 }
 
 impl CodeProps {
@@ -34,6 +36,7 @@ impl CodeProps {
                 Style::new().fg(Color::DarkGray),
             )],
             focused: false,
+            scroll: 0,
         }
     }
 }
@@ -88,6 +91,7 @@ pub fn build(input: Input) -> CodeProps {
         title: input.title,
         rows,
         focused: input.focused,
+        scroll: 0,
     }
 }
 
@@ -120,32 +124,40 @@ fn visible(
     spans
 }
 
+/// Draw `CodeProps` from `props`' `Value` in a bordered block.
+pub fn render(props: &Props, frame: &mut Frame, area: Rect) {
+    let Some(code) = props
+        .get(Attribute::Value)
+        .and_then(AttrValue::as_payload)
+        .and_then(PropPayload::as_any)
+        .and_then(|p| p.downcast_ref::<CodeProps>())
+    else {
+        return;
+    };
+    let border = if code.focused {
+        Color::Cyan
+    } else {
+        Color::DarkGray
+    };
+    let block = Block::bordered()
+        .border_type(BorderType::Rounded)
+        .border_style(Style::new().fg(border))
+        .title(format!(" {} ", code.title));
+    let paragraph = Paragraph::new(code.rows.clone())
+        .block(block)
+        .scroll((code.scroll, 0));
+    frame.render_widget(paragraph, area);
+}
+
+/// A bordered pane that draws the `CodeProps` in its `Value`.
 #[derive(Default)]
-pub struct CodeView {
+pub struct Rows {
     props: Props,
 }
 
-impl Component for CodeView {
+impl Component for Rows {
     fn view(&mut self, frame: &mut Frame, area: Rect) {
-        let Some(props) = self
-            .props
-            .get(Attribute::Value)
-            .and_then(AttrValue::as_payload)
-            .and_then(PropPayload::as_any)
-            .and_then(|p| p.downcast_ref::<CodeProps>())
-        else {
-            return;
-        };
-        let border = if props.focused {
-            Color::Cyan
-        } else {
-            Color::DarkGray
-        };
-        let block = Block::bordered()
-            .border_type(BorderType::Rounded)
-            .border_style(Style::new().fg(border))
-            .title(format!(" {} ", props.title));
-        frame.render_widget(Paragraph::new(props.rows.clone()).block(block), area);
+        render(&self.props, frame, area);
     }
 
     fn query<'a>(&'a self, attr: Attribute) -> Option<QueryResult<'a>> {
@@ -163,6 +175,11 @@ impl Component for CodeView {
     fn perform(&mut self, cmd: Cmd) -> CmdResult {
         CmdResult::Invalid(cmd)
     }
+}
+
+#[derive(Component, Default)]
+pub struct CodeView {
+    component: Rows,
 }
 
 impl AppComponent<Msg, NoUserEvent> for CodeView {

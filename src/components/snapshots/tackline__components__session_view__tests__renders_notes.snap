@@ -1,0 +1,22 @@
+---
+source: src/components/session_view.rs
+expression: "render(props, Size::new(50, 18))"
+---
+╭ Session: Perf ─────────────────────────────────╮
+│  1. src/match.rs:L88-95                        │
+│     │ fn a() {                                 │
+│     │     b();                                 │
+│     │ … 6 more lines                           │
+│     make this async,                           │
+│     keep the signature                         │
+│                                                │
+│▌ 2. src/score.rs:L12:4-L12:30                  │
+│▌    │ let s = x;                               │
+│▌    use the helper                             │
+│                                                │
+│  3. ⚠ stale web/app.ts:L1                      │
+│     │ export {}                                │
+│     gone                                       │
+│                                                │
+│                                                │
+╰────────────────────────────────────────────────╯

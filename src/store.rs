@@ -145,6 +145,44 @@ impl Store for FsStore {
     }
 }
 
+/// In-memory store for tests.
+#[cfg(test)]
+#[derive(Default)]
+pub struct MemStore {
+    sessions: std::cell::RefCell<Vec<Session>>,
+    state: std::cell::RefCell<State>,
+}
+
+#[cfg(test)]
+impl Store for MemStore {
+    fn load_sessions(&self) -> Result<Vec<Session>> {
+        Ok(self.sessions.borrow().clone())
+    }
+
+    fn save_session(&self, session: &Session) -> Result<()> {
+        let mut sessions = self.sessions.borrow_mut();
+        match sessions.iter_mut().find(|s| s.id == session.id) {
+            Some(s) => *s = session.clone(),
+            None => sessions.push(session.clone()),
+        }
+        Ok(())
+    }
+
+    fn delete_session(&self, id: &str) -> Result<()> {
+        self.sessions.borrow_mut().retain(|s| s.id != id);
+        Ok(())
+    }
+
+    fn load_state(&self) -> Result<State> {
+        Ok(self.state.borrow().clone())
+    }
+
+    fn save_state(&self, state: &State) -> Result<()> {
+        *self.state.borrow_mut() = state.clone();
+        Ok(())
+    }
+}
+
 fn read_json<T: DeserializeOwned>(path: &Path) -> Result<T> {
     let bytes = fs::read(path).map_err(|source| StoreError::Io {
         path: path.into(),

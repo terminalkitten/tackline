@@ -1,11 +1,12 @@
 //! Model, Msg and update: all app state and every change to it.
 
 mod run;
+mod sessions;
 
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
-use std::time::SystemTime;
+use std::time::{Instant, SystemTime};
 
 use tuirealm::ratatui::layout::{Constraint, Layout, Rect};
 use tuirealm::ratatui::text::Line;
@@ -14,8 +15,10 @@ use two_face::re_exports::syntect::highlighting::Theme;
 pub use run::run;
 
 use crate::components::code_view::{self, CodeProps};
+use crate::components::session_view::NoteRow;
 use crate::highlight::{Highlighted, TAB};
 use crate::model::{Session, State, View};
+use crate::store::{Store, StoreError};
 
 /// Files bigger than this show a placeholder.
 const MAX_FILE_BYTES: u64 = 2 * 1024 * 1024;
@@ -32,6 +35,31 @@ pub enum Id {
     Placeholder,
     StatusBar,
     Help,
+    NameInput,
+    SessionPicker,
+    SessionView,
+    Toast,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Popup {
+    Help,
+    NewSession,
+    SessionPicker,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ToastKind {
+    Info,
+    Warning,
+    Error,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Toast {
+    pub text: String,
+    pub kind: ToastKind,
+    pub at: Instant,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -63,8 +91,22 @@ pub enum Msg {
     PressG,
     ToggleFocus,
     ShowView(View),
-    ToggleHelp,
-    CloseHelp,
+    OpenPopup(Popup),
+    ClosePopup,
+    /// Create a session with this name and make it active.
+    NewSession(String),
+    /// Make the session at this index (in load order) active.
+    PickSession(usize),
+    /// Session view: select the previous/next note.
+    NoteUp,
+    NoteDown,
+    /// Session view: open the selected note in the Files view.
+    JumpToNote,
+    /// Compile the active session and copy it.
+    CopyPrompt,
+    DismissToast,
+    /// Something outside `update` failed (e.g. the clipboard).
+    Error(String),
     /// Terminal size (width, height).
     Resize(u16, u16),
     /// A component changed only its own widget state.
@@ -105,12 +147,20 @@ pub struct Model {
     /// First visible display column.
     pub left: usize,
     pub size: (u16, u16),
-    pub help: bool,
+    pub popup: Option<Popup>,
     pub pending_g: bool,
     pub quit: bool,
     pub sessions: Vec<Session>,
     pub state: State,
     pub theme: Theme,
+    pub toast: Option<Toast>,
+    /// Text for the run loop to put on the clipboard.
+    pub clipboard: Option<String>,
+    /// The active session's notes, resolved against the files on disk.
+    pub notes: Vec<NoteRow>,
+    /// Selected note in the Session view.
+    pub note_cursor: usize,
+    store: Box<dyn Store>,
     /// Per-file highlight caches, dropped when the file's mtime changes.
     highlights: HashMap<PathBuf, (Option<SystemTime>, Highlighted)>,
 }
@@ -139,8 +189,16 @@ pub fn layout(area: Rect) -> Areas {
 }
 
 impl Model {
-    pub fn new(root: PathBuf, theme: Theme, sessions: Vec<Session>, state: State) -> Self {
-        Self {
+    /// Loads sessions and state from `store`, and reopens the last file.
+    pub fn new(root: PathBuf, theme: Theme, store: Box<dyn Store>) -> Result<Self, StoreError> {
+        let mut model = Self {
+            sessions: store.load_sessions()?,
+            state: store.load_state()?,
+            store,
+            toast: None,
+            clipboard: None,
+            notes: Vec::new(),
+            note_cursor: 0,
             root,
             view: View::Files,
             focus: Focus::Tree,
@@ -149,14 +207,17 @@ impl Model {
             top: 0,
             left: 0,
             size: (80, 24),
-            help: false,
+            popup: None,
             pending_g: false,
             quit: false,
-            sessions,
-            state,
             theme,
             highlights: HashMap::new(),
+        };
+        if let Some(path) = model.state.last_file.clone() {
+            model.open(path);
+            model.focus = Focus::Tree;
         }
+        Ok(model)
     }
 
     pub fn active_session(&self) -> Option<&Session> {
@@ -166,11 +227,14 @@ impl Model {
 
     /// The component that receives keys.
     pub fn active_id(&self) -> Id {
-        match (self.help, self.view, self.focus) {
-            (true, ..) => Id::Help,
-            (false, View::Files, Focus::Tree) => Id::FileTree,
-            (false, View::Files, Focus::Code) => Id::CodeView,
-            _ => Id::Placeholder,
+        match (self.popup, self.view, self.focus) {
+            (Some(Popup::Help), ..) => Id::Help,
+            (Some(Popup::NewSession), ..) => Id::NameInput,
+            (Some(Popup::SessionPicker), ..) => Id::SessionPicker,
+            (None, View::Files, Focus::Tree) => Id::FileTree,
+            (None, View::Files, Focus::Code) => Id::CodeView,
+            (None, View::Session, _) => Id::SessionView,
+            (None, View::Diff, _) => Id::Placeholder,
         }
     }
 
@@ -206,9 +270,19 @@ impl Model {
                     Focus::Code => Focus::Tree,
                 }
             }
-            Msg::ShowView(view) => self.view = view,
-            Msg::ToggleHelp => self.help = !self.help,
-            Msg::CloseHelp => self.help = false,
+            Msg::ShowView(view) => self.show_view(view),
+            Msg::OpenPopup(popup) => self.popup = Some(popup),
+            Msg::ClosePopup => self.popup = None,
+            Msg::NewSession(name) => self.new_session(&name),
+            Msg::PickSession(i) => self.pick_session(i),
+            Msg::NoteUp => self.note_cursor = self.note_cursor.saturating_sub(1),
+            Msg::NoteDown => {
+                self.note_cursor = (self.note_cursor + 1).min(self.notes.len().saturating_sub(1))
+            }
+            Msg::JumpToNote => self.jump_to_note(),
+            Msg::CopyPrompt => self.copy_prompt(),
+            Msg::DismissToast => self.toast = None,
+            Msg::Error(text) => self.toast(ToastKind::Error, text),
             Msg::Resize(w, h) => {
                 self.size = (w, h);
                 self.scroll_to_cursor();
@@ -243,6 +317,10 @@ impl Model {
                 }
             },
         };
+        if self.state.last_file.as_ref() != Some(&path) {
+            self.state.last_file = Some(path.clone());
+            self.save_state();
+        }
         if self.highlights.get(&path).is_some_and(|(t, _)| *t != mtime) {
             self.highlights.remove(&path);
         }
@@ -255,6 +333,37 @@ impl Model {
         self.top = 0;
         self.left = 0;
         self.focus = Focus::Code;
+    }
+
+    fn show_view(&mut self, view: View) {
+        self.view = view;
+        if view == View::Session {
+            self.resolve_notes();
+        }
+        if self.state.last_view != Some(view) {
+            self.state.last_view = Some(view);
+            self.save_state();
+        }
+    }
+
+    fn toast(&mut self, kind: ToastKind, text: impl Into<String>) {
+        self.toast = Some(Toast {
+            text: text.into(),
+            kind,
+            at: Instant::now(),
+        });
+    }
+
+    /// Autosave; a failure shows up as an error toast.
+    fn saved(&mut self, result: Result<(), StoreError>) {
+        if let Err(e) = result {
+            self.toast(ToastKind::Error, format!("Couldn't save: {e}"));
+        }
+    }
+
+    fn save_state(&mut self) {
+        let result = self.store.save_state(&self.state);
+        self.saved(result);
     }
 
     fn move_cursor(&mut self, motion: Motion) {
@@ -379,7 +488,8 @@ mod tests {
 
     fn model(root: &std::path::Path) -> Model {
         let theme = load_theme(Some("base16-ocean.dark")).unwrap();
-        let mut m = Model::new(root.to_path_buf(), theme, vec![], State::default());
+        let store = Box::new(crate::store::MemStore::default());
+        let mut m = Model::new(root.to_path_buf(), theme, store).unwrap();
         m.update(Msg::Resize(80, 12));
         m
     }
@@ -520,9 +630,9 @@ mod tests {
         assert_eq!(m.active_id(), Id::CodeView);
         press(&mut m, &[Msg::ShowView(View::Diff)]);
         assert_eq!(m.active_id(), Id::Placeholder);
-        press(&mut m, &[Msg::ToggleHelp]);
+        press(&mut m, &[Msg::OpenPopup(Popup::Help)]);
         assert_eq!(m.active_id(), Id::Help);
-        press(&mut m, &[Msg::CloseHelp, Msg::ShowView(View::Files)]);
+        press(&mut m, &[Msg::ClosePopup, Msg::ShowView(View::Files)]);
         assert_eq!(m.active_id(), Id::CodeView);
         press(&mut m, &[Msg::Quit]);
         assert!(m.quit);

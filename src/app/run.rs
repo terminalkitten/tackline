@@ -13,16 +13,22 @@ use tuirealm::ratatui::text::Text;
 use tuirealm::ratatui::widgets::Clear;
 use tuirealm::terminal::{CrosstermTerminalAdapter, TerminalAdapter};
 
-use super::{Id, Model, Msg, layout};
+use super::{Id, Model, Msg, Popup, layout};
 use crate::components::code_view::CodeView;
 use crate::components::file_tree::{FileTree, build_tree};
 use crate::components::help_popup::{self, HelpPopup};
+use crate::components::name_input::NameInput;
+use crate::components::session_picker::{self, SessionPicker};
+use crate::components::session_view::SessionView;
 use crate::components::status_bar::{self, StatusBar};
-use crate::components::{Placeholder, borders};
+use crate::components::toast::{self, Toast};
+use crate::components::{Placeholder, borders, centered};
 use crate::model::View;
 use crate::search::files::walk;
 
 type App = Application<Id, Msg, NoUserEvent>;
+
+const TOAST_TTL: Duration = Duration::from_secs(3);
 
 pub fn run(mut model: Model) -> Result<()> {
     let mut app = mount(
@@ -34,16 +40,35 @@ pub fn run(mut model: Model) -> Result<()> {
     let mut term = CrosstermTerminalAdapter::new()?;
     term.enable_raw_mode()?;
     term.enter_alternate_screen()?;
+    let mut clipboard = None;
 
     let mut dirty = true;
+    let mut shown_popup = None;
     while !model.quit {
         let size = term.raw().size()?;
         if (size.width, size.height) != model.size {
             model.update(Msg::Resize(size.width, size.height));
             dirty = true;
         }
+        if model
+            .toast
+            .as_ref()
+            .is_some_and(|t| t.at.elapsed() > TOAST_TTL)
+        {
+            model.update(Msg::DismissToast);
+            dirty = true;
+        }
+        // The one effect `update` asks for instead of doing itself.
+        if let Some(text) = model.clipboard.take() {
+            if let Err(e) = copy(&mut clipboard, text) {
+                model.update(Msg::Error(format!("Couldn't copy: {e}")));
+            }
+            dirty = true;
+        }
         if dirty {
-            sync(&mut model, &mut app)?;
+            let opened = model.popup.filter(|_| model.popup != shown_popup);
+            shown_popup = model.popup;
+            sync(&mut model, &mut app, opened)?;
             term.draw(|f| draw(&mut app, &model, f))?;
         }
         // Keep drawing while highlighting catches up with the visible rows.
@@ -58,6 +83,16 @@ pub fn run(mut model: Model) -> Result<()> {
     Ok(())
 }
 
+/// Copy with the OS clipboard, kept alive so Linux clipboard owners don't
+/// vanish with it.
+fn copy(clipboard: &mut Option<arboard::Clipboard>, text: String) -> Result<()> {
+    if clipboard.is_none() {
+        *clipboard = Some(arboard::Clipboard::new()?);
+    }
+    clipboard.as_mut().expect("just set").set_text(text)?;
+    Ok(())
+}
+
 fn mount(root: &Path, listener: EventListenerCfg<NoUserEvent>) -> Result<App> {
     let mut app = Application::init(listener);
     let name = root
@@ -66,19 +101,57 @@ fn mount(root: &Path, listener: EventListenerCfg<NoUserEvent>) -> Result<App> {
     let tree = build_tree(&name, &walk(root));
     app.mount(Id::FileTree, Box::new(FileTree::new(tree)), vec![])?;
     app.mount(Id::CodeView, Box::new(CodeView::default()), vec![])?;
+    app.mount(Id::SessionView, Box::new(SessionView::default()), vec![])?;
     app.mount(Id::Placeholder, Box::new(Placeholder::default()), vec![])?;
     app.mount(Id::StatusBar, Box::new(StatusBar::default()), vec![])?;
     app.mount(Id::Help, Box::new(HelpPopup::default()), vec![])?;
+    app.mount(Id::NameInput, Box::new(NameInput::default()), vec![])?;
+    app.mount(
+        Id::SessionPicker,
+        Box::new(SessionPicker::default()),
+        vec![],
+    )?;
+    app.mount(Id::Toast, Box::new(Toast::default()), vec![])?;
     Ok(app)
 }
 
-/// Push the model's state into the components' props.
-fn sync(model: &mut Model, app: &mut App) -> Result<()> {
-    let code = model.code_props();
+fn any(value: impl PropBound) -> AttrValue {
+    AttrValue::Payload(PropPayload::Any(value.to_any_prop()))
+}
+
+/// Push the model's state into the components' props. `opened` is a popup
+/// that just opened and starts fresh.
+fn sync(model: &mut Model, app: &mut App, opened: Option<Popup>) -> Result<()> {
+    match opened {
+        Some(Popup::NewSession) => app.attr(
+            &Id::NameInput,
+            Attribute::Value,
+            AttrValue::String(String::new()),
+        )?,
+        Some(Popup::SessionPicker) => {
+            let active = model.state.active_session_id.as_deref();
+            let index = model
+                .sessions
+                .iter()
+                .position(|s| Some(s.id.as_str()) == active);
+            app.attr(
+                &Id::SessionPicker,
+                Attribute::Text,
+                session_picker::rows(&model.sessions, active),
+            )?;
+            app.attr(
+                &Id::SessionPicker,
+                Attribute::Value,
+                session_picker::selected(index.unwrap_or(0)),
+            )?;
+        }
+        _ => {}
+    }
+    app.attr(&Id::CodeView, Attribute::Value, any(model.code_props()))?;
     app.attr(
-        &Id::CodeView,
+        &Id::SessionView,
         Attribute::Value,
-        AttrValue::Payload(PropPayload::Any(code.to_any_prop())),
+        any(model.session_props()),
     )?;
     app.attr(
         &Id::FileTree,
@@ -90,39 +163,61 @@ fn sync(model: &mut Model, app: &mut App) -> Result<()> {
         .map(|s| (s.name.as_str(), s.notes.len()));
     let status = status_bar::spans(model.view, session, model.location());
     app.attr(&Id::StatusBar, Attribute::Text, status_bar::attr(status))?;
-    let (title, text) = match model.view {
-        View::Files => ("", ""),
-        View::Diff => (" Diff ", "The Diff view lands in milestone 6."),
-        View::Session => (" Session ", "The Session view lands in milestone 3."),
-    };
     app.attr(
         &Id::Placeholder,
         Attribute::Title,
-        AttrValue::Title(Title::from(title)),
+        AttrValue::Title(Title::from(" Diff ")),
     )?;
-    app.attr(
-        &Id::Placeholder,
-        Attribute::Text,
-        AttrValue::Text(Text::from(text)),
-    )?;
+    let text = Text::from("The Diff view lands in milestone 6.");
+    app.attr(&Id::Placeholder, Attribute::Text, AttrValue::Text(text))?;
+    if let Some(t) = &model.toast {
+        app.attr(
+            &Id::Toast,
+            Attribute::Text,
+            AttrValue::Text(Text::from(t.text.clone())),
+        )?;
+        app.attr(
+            &Id::Toast,
+            Attribute::Borders,
+            AttrValue::Borders(toast::borders(t.kind)),
+        )?;
+    }
     app.active(&model.active_id())?;
     Ok(())
 }
 
 fn draw(app: &mut App, model: &Model, f: &mut Frame) {
-    let areas = layout(f.area());
+    let screen = f.area();
+    let areas = layout(screen);
     match model.view {
         View::Files => {
             app.view(&Id::FileTree, f, areas.tree);
             app.view(&Id::CodeView, f, areas.code);
         }
-        View::Diff | View::Session => app.view(&Id::Placeholder, f, areas.main),
+        View::Session => app.view(&Id::SessionView, f, areas.main),
+        View::Diff => app.view(&Id::Placeholder, f, areas.main),
     }
     app.view(&Id::StatusBar, f, areas.status);
-    if model.help {
-        let area = help_popup::area(f.area());
+    let popup = model.popup.map(|p| match p {
+        Popup::Help => (Id::Help, help_popup::area(screen)),
+        Popup::NewSession => (Id::NameInput, centered(screen, 44.min(screen.width), 3)),
+        Popup::SessionPicker => {
+            let height =
+                (model.sessions.len() as u16 + 2).clamp(3, screen.height.saturating_sub(4));
+            (
+                Id::SessionPicker,
+                centered(screen, 44.min(screen.width), height),
+            )
+        }
+    });
+    if let Some((id, area)) = popup {
         f.render_widget(Clear, area);
-        app.view(&Id::Help, f, area);
+        app.view(&id, f, area);
+    }
+    if let Some(t) = &model.toast {
+        let area = toast::area(areas.main, &t.text);
+        f.render_widget(Clear, area);
+        app.view(&Id::Toast, f, area);
     }
 }
 
@@ -131,38 +226,62 @@ mod tests {
     use super::*;
     use crate::app::Motion;
     use crate::highlight::load_theme;
-    use crate::model::State;
+    use crate::store::MemStore;
     use tuirealm::ratatui::layout::Size;
     use tuirealm::terminal::TestTerminalAdapter;
     use tuirealm::testing::buffer_to_string;
 
-    fn frame(model: &mut Model) -> String {
+    fn frame(model: &mut Model, opened: Option<Popup>) -> String {
         let (w, h) = model.size;
         let mut app = mount(&model.root, EventListenerCfg::default()).unwrap();
         let mut term = TestTerminalAdapter::new(Size::new(w, h)).unwrap();
-        sync(model, &mut app).unwrap();
+        sync(model, &mut app, opened).unwrap();
         let done = term.draw(|f| draw(&mut app, model, f)).unwrap();
         buffer_to_string(done.buffer)
+    }
+
+    fn model(root: &Path) -> Model {
+        let theme = load_theme(Some("base16-ocean.dark")).unwrap();
+        let mut m = Model::new(root.into(), theme, Box::new(MemStore::default())).unwrap();
+        m.update(Msg::Resize(80, 14));
+        m
     }
 
     #[test]
     fn files_view_frames() {
         let repo = crate::testutil::fixture_repo();
-        let theme = load_theme(Some("base16-ocean.dark")).unwrap();
-        let mut m = Model::new(repo.path().to_path_buf(), theme, vec![], State::default());
-        m.update(Msg::Resize(80, 14));
-        insta::assert_snapshot!("frame_empty", frame(&mut m));
+        let mut m = model(repo.path());
+        insta::assert_snapshot!("frame_empty", frame(&mut m, None));
 
         m.update(Msg::OpenFile("src/matcher.rs".into()));
         m.update(Msg::Move(Motion::Down));
         m.update(Msg::Move(Motion::LineEnd));
-        insta::assert_snapshot!("frame_file", frame(&mut m));
+        insta::assert_snapshot!("frame_file", frame(&mut m, None));
 
-        m.update(Msg::ToggleHelp);
-        insta::assert_snapshot!("frame_help", frame(&mut m));
+        m.update(Msg::OpenPopup(Popup::Help));
+        insta::assert_snapshot!("frame_help", frame(&mut m, None));
 
-        m.update(Msg::CloseHelp);
+        m.update(Msg::ClosePopup);
         m.update(Msg::ShowView(View::Diff));
-        insta::assert_snapshot!("frame_diff_placeholder", frame(&mut m));
+        insta::assert_snapshot!("frame_diff_placeholder", frame(&mut m, None));
+    }
+
+    #[test]
+    fn session_frames() {
+        let repo = crate::testutil::fixture_repo();
+        let mut m = model(repo.path());
+        m.update(Msg::ShowView(View::Session));
+        insta::assert_snapshot!("frame_no_session", frame(&mut m, None));
+
+        m.update(Msg::OpenPopup(Popup::NewSession));
+        insta::assert_snapshot!("frame_new_session", frame(&mut m, Some(Popup::NewSession)));
+
+        m.update(Msg::NewSession("Perf".into()));
+        m.update(Msg::NewSession("Docs".into()));
+        m.update(Msg::OpenPopup(Popup::SessionPicker));
+        insta::assert_snapshot!("frame_picker", frame(&mut m, Some(Popup::SessionPicker)));
+
+        m.update(Msg::PickSession(0));
+        insta::assert_snapshot!("frame_session_empty_with_toast", frame(&mut m, None));
     }
 }

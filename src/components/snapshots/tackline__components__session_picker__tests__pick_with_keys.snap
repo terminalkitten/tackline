@@ -1,0 +1,9 @@
+---
+source: src/components/session_picker.rs
+expression: "render_to_string(&mut picker, Size::new(30, 5))"
+---
+╭ Sessions ──────────────────╮
+│  Perf  0 notes             │
+│● Docs  0 notes             │
+│  Bugs  0 notes             │
+╰────────────────────────────╯
