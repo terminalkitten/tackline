@@ -1,6 +1,6 @@
 [package]
 name = "tackline"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 rust-version = "1.88"
 description = "Steer coding agents from your terminal: put prompt instructions on lines of code, group them in sessions, and compile one prompt for Claude Code."
