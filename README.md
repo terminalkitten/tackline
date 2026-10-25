@@ -252,6 +252,9 @@ gh release download v0.1.2 -p tackline.rb -O Formula/tackline.rb --clobber
 git commit -m "chore: homebrew formula 0.1.2" Formula/tackline.rb && git push
 ```
 
+Finally run the install check (`gh workflow run install-check.yml`), which installs the release
+with the shell, PowerShell and Homebrew installers on fresh macOS, Linux and Windows runners.
+
 The usage docs are in [`docs/site/`](docs/site/index.md), built with
 [dokk](https://github.com/terminalkitten/dokk):
 
