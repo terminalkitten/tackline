@@ -1,5 +1,6 @@
 pub mod anchor;
 pub mod app;
+pub mod cli;
 pub mod compile;
 pub mod components;
 pub mod git;

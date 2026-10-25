@@ -2,6 +2,16 @@
 name = "tackline"
 version = "0.1.0"
 edition = "2024"
+rust-version = "1.88"
+description = "Steer coding agents from your terminal: put prompt instructions on lines of code, group them in sessions, and compile one prompt for Claude Code."
+license = "MIT"
+repository = "https://github.com/terminalkitten/tackline"
+homepage = "https://terminalkitten.github.io/tackline/"
+readme = "README.md"
+keywords = ["tui", "ai", "agent", "prompt", "claude"]
+categories = ["command-line-utilities", "development-tools"]
+# Docs site, screenshots and CI stay in the repository.
+exclude = ["docs/", ".github/"]
 
 [dependencies]
 anyhow = "1"

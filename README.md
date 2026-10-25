@@ -16,9 +16,11 @@ for an agent, not verdicts on the code.
 ## Install
 
 ```sh
-cargo install --path .
-alias tack=tackline   # optional
+cargo install tackline
 ```
+
+This installs two commands that do the same thing: `tackline` and the shorter
+`tack`. From a checkout, use `cargo install --path .`.
 
 Run it inside a git repository (or any subdirectory of one). Outside a repo
 the Files view still works, without the Diff view.

@@ -5,18 +5,20 @@ description: Install tackline and turn your first note into a prompt.
 
 ## Install
 
-tackline is a Rust program. With a [Rust toolchain](https://rustup.rs) installed, from a checkout
-of the repository:
+tackline is a Rust program. With a [Rust toolchain](https://rustup.rs) installed:
 
 ```sh
-cargo install --path .
+cargo install tackline
 ```
 
-That puts `tackline` on your `PATH`. A shorter name helps if you use it a lot:
+That puts two commands on your `PATH` that do the same thing: `tackline`, and `tack` for short.
+Every example in these docs works with either. From a checkout of the repository, use
+`cargo install --path .` instead.
 
-```sh
-alias tack=tackline
-```
+:::note
+If another program already installed a `tack` command, cargo stops and says so. Remove that one,
+or keep using `tackline`.
+:::
 
 ## First run
 
