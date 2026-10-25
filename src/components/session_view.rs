@@ -96,6 +96,7 @@ pub fn build(
         rows,
         focused,
         scroll: scroll as u16,
+        footer: None,
     }
 }
 

@@ -26,6 +26,8 @@ pub struct CodeProps {
     pub focused: bool,
     /// Rows scrolled off the top.
     pub scroll: u16,
+    /// Shown in the bottom border: the note under the cursor.
+    pub footer: Option<String>,
 }
 
 impl CodeProps {
@@ -38,6 +40,7 @@ impl CodeProps {
             )],
             focused: false,
             scroll: 0,
+            footer: None,
         }
     }
 }
@@ -70,6 +73,8 @@ pub struct Input<'a> {
     /// Lines covered by notes in the active session.
     pub marks: &'a [Mark],
     pub selection: Option<Selection>,
+    /// Excerpt of the note under the cursor, for the bottom border.
+    pub footer: Option<String>,
     pub theme: &'a Theme,
     pub focused: bool,
 }
@@ -117,6 +122,7 @@ pub fn build(input: Input) -> CodeProps {
     let current = Style::new().bg(settings.line_highlight.map_or(Color::Indexed(236), color));
     let selected = settings.selection.map_or(Color::Indexed(24), color);
     let (added, removed) = diff_colors(input.theme);
+    let tacked = note_tint(input.theme);
     let digits = match input.diff {
         Some(_) => input.diff_digits,
         None => gutter_width(input.total_lines) - 3,
@@ -164,15 +170,26 @@ pub fn build(input: Input) -> CodeProps {
                 }
                 _ => line,
             };
-            spans.extend(visible(line, from, input.width, cursor, sel, selected));
+            let code = visible(line, from, input.width, cursor, sel, selected);
+            let used: usize = code.iter().map(|s| s.content.chars().count()).sum();
+            spans.extend(code);
+            // Pad to the pane's width so row backgrounds (note tint, diff,
+            // current line) fill the whole row, not just the text.
+            spans.push(Span::raw(" ".repeat(input.width.saturating_sub(used))));
             let out = Line::from(spans);
             let diff_bg = match row.map(|r| r.kind) {
                 Some(RowKind::Added) => Some(added),
                 Some(RowKind::Removed) => Some(removed),
                 _ => None,
             };
+            let noted = input
+                .marks
+                .iter()
+                .any(|m| !m.stale && (m.start..=m.end).contains(&n));
             if input.selection.is_some_and(|s| s.linewise) && sel.is_some() {
                 out.style(Style::new().bg(selected))
+            } else if noted {
+                out.style(Style::new().bg(tacked))
             } else if let Some(bg) = diff_bg {
                 out.style(Style::new().bg(bg))
             } else if n == input.current_line {
@@ -187,6 +204,7 @@ pub fn build(input: Input) -> CodeProps {
         rows,
         focused: input.focused,
         scroll: 0,
+        footer: input.footer,
     }
 }
 
@@ -202,6 +220,11 @@ fn marker(marks: &[Mark], n: usize) -> Span<'static> {
         return Span::raw(" ");
     }
     let stale = covering.iter().any(|m| m.stale);
+    let color = if stale {
+        Color::LightRed
+    } else {
+        Color::Yellow
+    };
     let glyph = if covering.iter().any(|m| m.stale && m.start == n) {
         "⚠"
     } else if covering.iter().any(|m| m.start == n || m.end == n) {
@@ -209,10 +232,7 @@ fn marker(marks: &[Mark], n: usize) -> Span<'static> {
     } else {
         "│"
     };
-    Span::styled(
-        glyph,
-        Style::new().fg(if stale { Color::Yellow } else { Color::Cyan }),
-    )
+    Span::styled(glyph, Style::new().fg(color))
 }
 
 /// Gutter width for a diff: old and new line numbers, sign, marker, space.
@@ -232,12 +252,24 @@ pub fn diff_digits(rows: &[Row]) -> usize {
 }
 
 /// Subtle added/removed backgrounds that suit the theme's brightness.
-fn diff_colors(theme: &Theme) -> (Color, Color) {
-    let light = theme
+/// Light yellow behind noted ("tacked") lines, dim enough to read code on.
+fn note_tint(theme: &Theme) -> Color {
+    if is_light(theme) {
+        Color::Rgb(255, 246, 204)
+    } else {
+        Color::Rgb(58, 52, 28)
+    }
+}
+
+fn is_light(theme: &Theme) -> bool {
+    theme
         .settings
         .background
-        .is_some_and(|c| u32::from(c.r) + u32::from(c.g) + u32::from(c.b) > 3 * 128);
-    if light {
+        .is_some_and(|c| u32::from(c.r) + u32::from(c.g) + u32::from(c.b) > 3 * 128)
+}
+
+fn diff_colors(theme: &Theme) -> (Color, Color) {
+    if is_light(theme) {
         (Color::Rgb(218, 251, 225), Color::Rgb(255, 235, 233))
     } else {
         (Color::Rgb(26, 58, 36), Color::Rgb(74, 30, 34))
@@ -298,10 +330,16 @@ pub fn render(props: &Props, frame: &mut Frame, area: Rect) {
     } else {
         Color::DarkGray
     };
-    let block = Block::bordered()
+    let mut block = Block::bordered()
         .border_type(BorderType::Rounded)
         .border_style(Style::new().fg(border))
         .title(format!(" {} ", code.title));
+    if let Some(footer) = &code.footer {
+        block = block.title_bottom(Line::styled(
+            format!(" ● {footer} "),
+            Style::new().fg(Color::Yellow),
+        ));
+    }
     let paragraph = Paragraph::new(code.rows.clone())
         .block(block)
         .scroll((code.scroll, 0));

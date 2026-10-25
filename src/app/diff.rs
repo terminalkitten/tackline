@@ -173,6 +173,7 @@ impl Model {
             rows,
             focused,
             scroll: self.diff_selected.saturating_sub(height.saturating_sub(1)) as u16,
+            footer: None,
         }
     }
 }

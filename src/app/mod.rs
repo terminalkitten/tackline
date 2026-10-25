@@ -750,6 +750,10 @@ impl Model {
             diff_digits: file.diff.as_deref().map_or(0, code_view::diff_digits),
             marks: &self.marks,
             selection: self.selection_view(),
+            // The bottom border has room for the pane width minus its corners
+            // and the " ● " prefix.
+            footer: self
+                .note_excerpt(cols + code_view::gutter_width(lines.len()).saturating_sub(5)),
             theme: &self.theme,
             focused,
         })
@@ -974,7 +978,12 @@ mod tests {
         m.update(Msg::Resize(60, 12));
         m.update(Msg::OpenFile("src/matcher.rs".into()));
         m.update(Msg::ToggleWrap);
-        let rows: Vec<String> = m.code_props().rows.iter().map(|r| r.to_string()).collect();
+        let rows: Vec<String> = m
+            .code_props()
+            .rows
+            .iter()
+            .map(|r| r.to_string().trim_end().to_string())
+            .collect();
         assert_eq!(rows[0], "1   pub fn matches(query: &s");
         assert_eq!(rows[1], "    tr, items: &[String]) ->");
         assert_eq!(rows[2], "     Vec<String> {");

@@ -42,7 +42,8 @@ exists yet, :kbd[c] asks for a session name first and then opens the note.
 
 ## See your notes
 
-In the code pane, the gutter marks every line with a note in the active session:
+Code with a note in the active session ("tacked" code) stands out: its lines get a light yellow
+background, and the gutter marks them in yellow:
 
 ```text
  3 ●     for item in items {
@@ -53,7 +54,14 @@ In the code pane, the gutter marks every line with a note in the active session:
 
 - `●` alone: a one-line note.
 - `●` … `│` … `●`: a note over several lines, from first to last line.
-- `⚠` in yellow: a [stale note](#stale-notes).
+- `⚠` in red: a [stale note](#stale-notes).
+
+With the cursor on a tacked line, the bottom border of the code pane shows the start of that
+note's instruction, cut short with `…` when it doesn't fit:
+
+```text
+╰ ● replace the loop with an iterator chain: items.iter().filter(..)… ─────╯
+```
 
 Files with notes in the active session get a `●` in the file tree.
 

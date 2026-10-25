@@ -75,6 +75,7 @@ pub fn results(picker: &Picker, height: usize) -> CodeProps {
         rows,
         focused: true,
         scroll: picker.selected.saturating_sub(height.saturating_sub(1)) as u16,
+        footer: None,
     }
 }
 

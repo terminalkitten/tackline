@@ -234,6 +234,23 @@ impl Model {
         })
     }
 
+    /// The text of the note under the cursor, on one line and cut to
+    /// `max` chars with `…`.
+    pub(super) fn note_excerpt(&self, max: usize) -> Option<String> {
+        let line = self.cursor.line;
+        let mark = self
+            .marks
+            .iter()
+            .find(|m| (m.start..=m.end).contains(&line))?;
+        let text = &self.active_session()?.notes.get(mark.note)?.text;
+        let flat = text.split_whitespace().collect::<Vec<_>>().join(" ");
+        if flat.chars().count() <= max {
+            return Some(flat);
+        }
+        let cut: String = flat.chars().take(max.saturating_sub(1)).collect();
+        Some(format!("{}…", cut.trim_end()))
+    }
+
     /// The note popup's header.
     pub fn note_header(&self) -> Option<CodeProps> {
         let draft = self.draft.as_ref()?;
@@ -605,6 +622,36 @@ mod tests {
             .collect();
         assert_eq!(texts, ["first line"]);
         assert_eq!(m.marks.len(), 1);
+    }
+
+    #[test]
+    fn excerpt_of_the_note_under_the_cursor() {
+        let repo = fixture_repo();
+        let mut m = model(repo.path());
+        m.update(Msg::NewSession("S".into()));
+        m.update(Msg::OpenFile("src/matcher.rs".into()));
+        press(
+            &mut m,
+            &[
+                Msg::ToggleSelection(SelectionKind::Line),
+                Msg::Move(Motion::Down),
+                Msg::AddNote,
+                Msg::SaveNote("replace the loop\nwith an   iterator chain".into()),
+            ],
+        );
+        assert_eq!(
+            m.note_excerpt(80).as_deref(),
+            Some("replace the loop with an iterator chain")
+        );
+        assert_eq!(m.note_excerpt(12).as_deref(), Some("replace the…"));
+        m.update(Msg::Move(Motion::Bottom));
+        assert_eq!(m.note_excerpt(80), None, "no note on this line");
+        // The pane shows it in its bottom border.
+        m.update(Msg::Move(Motion::Top));
+        assert_eq!(
+            m.code_props().footer.as_deref(),
+            Some("replace the loop with an iterator chain")
+        );
     }
 
     #[test]

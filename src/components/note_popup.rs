@@ -62,6 +62,7 @@ pub fn header(
         rows,
         focused: true,
         scroll: 0,
+        footer: None,
     }
 }
 
