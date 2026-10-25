@@ -73,6 +73,8 @@ pub struct Mark {
     pub start: usize,
     pub end: usize,
     pub stale: bool,
+    /// Index of the note in the active session.
+    pub note: usize,
 }
 
 /// From `start` to `end` inclusive, as (line, display column).

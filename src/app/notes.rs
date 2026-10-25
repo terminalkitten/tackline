@@ -114,6 +114,22 @@ impl Model {
             return;
         }
         let span = self.selected_span();
+        // Code that already has a note: open that note instead.
+        let lines_of = |m: &Mark| (m.start as u32 + 1, m.end as u32 + 1);
+        let existing = self
+            .marks
+            .iter()
+            .filter(|m| !m.stale)
+            .find(|m| match self.selection {
+                None => (m.start..=m.end).contains(&self.cursor.line),
+                Some(_) => lines_of(m) == (span.start_line, span.end_line),
+            });
+        if let Some(mark) = existing {
+            let index = mark.note;
+            self.selection = None;
+            self.resolve_notes();
+            return self.edit_note_at(index);
+        }
         let Some(anchor) = capture(span, &lines.join("\n")) else {
             return;
         };
@@ -197,17 +213,23 @@ impl Model {
 
     /// `e` in the Session view.
     pub(super) fn edit_note(&mut self) {
+        self.edit_note_at(self.note_cursor);
+    }
+
+    /// Open the active session's note `index` in the note popup.
+    fn edit_note_at(&mut self, index: usize) {
         let Some(target) = self.active_index() else {
             return;
         };
-        let Some(note) = self.sessions[target].notes.get(self.note_cursor) else {
+        let Some(note) = self.sessions[target].notes.get(index) else {
             return;
         };
         self.draft = Some(Draft {
             file: note.file.clone(),
-            span: self.notes[self.note_cursor]
-                .jump
-                .as_ref()
+            span: self
+                .notes
+                .get(index)
+                .and_then(|row| row.jump.as_ref())
                 .map_or(note.span, |(_, s)| *s),
             anchor: note.anchor.clone(),
             text: note.text.clone(),
@@ -270,8 +292,9 @@ impl Model {
                 session
                     .notes
                     .iter()
-                    .filter(|n| n.file == file.path)
-                    .map(|n| {
+                    .enumerate()
+                    .filter(|(_, n)| n.file == file.path)
+                    .map(|(i, n)| {
                         let (span, stale) = match relocate(n.span, &n.anchor, &text) {
                             Relocation::Kept => (n.span, false),
                             Relocation::Moved(span) => (span, false),
@@ -281,6 +304,7 @@ impl Model {
                             start: span.start_line as usize - 1,
                             end: span.end_line as usize - 1,
                             stale,
+                            note: i,
                         }
                     })
                     .collect()
@@ -347,7 +371,8 @@ mod tests {
             [Mark {
                 start: 0,
                 end: 2,
-                stale: false
+                stale: false,
+                note: 0,
             }]
         );
 
@@ -415,6 +440,61 @@ mod tests {
             ],
         );
         assert_eq!(m.draft.as_ref().unwrap().span, Span::lines(8, 9));
+    }
+
+    #[test]
+    fn c_on_noted_code_edits_that_note() {
+        let repo = fixture_repo();
+        let mut m = model(repo.path());
+        m.update(Msg::NewSession("S".into()));
+        m.update(Msg::OpenFile("src/matcher.rs".into()));
+        press(&mut m, &[Msg::Move(Motion::Down), Msg::Move(Motion::Down)]);
+        press(
+            &mut m,
+            &[
+                Msg::ToggleSelection(SelectionKind::Line),
+                Msg::Move(Motion::Down),
+                Msg::AddNote,
+            ],
+        );
+        m.update(Msg::SaveNote("first".into()));
+
+        // Cursor inside the note, no selection: edit it.
+        m.update(Msg::AddNote);
+        let draft = m.draft.clone().unwrap();
+        assert_eq!(
+            (draft.text.as_str(), draft.span),
+            ("first", Span::lines(3, 4))
+        );
+        assert!(draft.editing.is_some());
+        m.update(Msg::SaveNote("changed".into()));
+        assert_eq!(m.active_session().unwrap().notes.len(), 1);
+        assert_eq!(m.active_session().unwrap().notes[0].text, "changed");
+
+        // The same lines selected again: edit too.
+        press(
+            &mut m,
+            &[
+                Msg::Move(Motion::Up),
+                Msg::ToggleSelection(SelectionKind::Line),
+                Msg::Move(Motion::Down),
+                Msg::AddNote,
+            ],
+        );
+        assert_eq!(m.draft.as_ref().unwrap().text, "changed");
+        m.update(Msg::ClosePopup);
+
+        // A different selection overlapping it: a new note.
+        press(
+            &mut m,
+            &[
+                Msg::ToggleSelection(SelectionKind::Line),
+                Msg::Move(Motion::Down),
+                Msg::AddNote,
+            ],
+        );
+        assert!(m.draft.as_ref().unwrap().editing.is_none());
+        assert_eq!(m.draft.as_ref().unwrap().span, Span::lines(4, 5));
     }
 
     #[test]
@@ -569,7 +649,8 @@ mod tests {
             [Mark {
                 start: 1,
                 end: 1,
-                stale: true
+                stale: true,
+                note: 0,
             }]
         );
     }

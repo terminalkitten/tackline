@@ -104,10 +104,12 @@ impl NoteText {
         let mut component = TextArea::new(lines)
             .borders(borders(true))
             .title(
-                Title::from(" Prompt · Enter saves · Ctrl+J newline · Esc cancels ")
+                Title::from(" Prompt · Ctrl+S saves · Esc cancels ")
                     .alignment(HorizontalAlignment::Left),
             )
             .cursor_style(Style::new().add_modifier(Modifier::REVERSED))
+            // tui-textarea underlines the cursor line by default.
+            .cursor_line_style(Style::new())
             .layout_margin(0);
         // Start at the end of any existing text.
         component.perform(Cmd::Custom(tui_realm_textarea::TEXTAREA_CMD_MOVE_BOTTOM));
@@ -134,10 +136,10 @@ impl AppComponent<Msg, NoUserEvent> for NoteText {
     fn on(&mut self, ev: &Event<NoUserEvent>) -> Option<Msg> {
         let cmd = match key(ev)? {
             (Key::Esc, _) => return Some(Msg::ClosePopup),
-            (Key::Enter, false) => return Some(Msg::SaveNote(self.text())),
+            (Key::Char('s'), true) => return Some(Msg::SaveNote(self.text())),
             (Key::Tab, _) => return Some(Msg::CycleSession(1)),
             (Key::BackTab, _) => return Some(Msg::CycleSession(-1)),
-            (Key::Char('j'), true) | (Key::Enter, true) => Cmd::Custom(TEXTAREA_CMD_NEWLINE),
+            (Key::Enter, _) => Cmd::Custom(TEXTAREA_CMD_NEWLINE),
             (Key::Char(c), false) => Cmd::Type(c),
             (Key::Backspace, _) => Cmd::Delete,
             (Key::Delete, _) => Cmd::Cancel,
@@ -198,12 +200,12 @@ mod tests {
     }
 
     #[test]
-    fn type_newline_save() {
+    fn enter_is_newline_ctrl_s_saves() {
         let mut text = NoteText::new("");
         for c in "make it async".chars() {
             press(&mut text, Key::Char(c), KeyModifiers::NONE);
         }
-        press(&mut text, Key::Char('j'), KeyModifiers::CONTROL);
+        press(&mut text, Key::Enter, KeyModifiers::NONE);
         for c in "keep the API".chars() {
             press(&mut text, Key::Char(c), KeyModifiers::NONE);
         }
@@ -212,7 +214,7 @@ mod tests {
             Some(Msg::CycleSession(1))
         );
         assert_eq!(
-            press(&mut text, Key::Enter, KeyModifiers::NONE),
+            press(&mut text, Key::Char('s'), KeyModifiers::CONTROL),
             Some(Msg::SaveNote("make it async\nkeep the API".into()))
         );
     }
@@ -222,7 +224,7 @@ mod tests {
         let mut text = NoteText::new("old\ntext");
         press(&mut text, Key::Char('!'), KeyModifiers::NONE);
         assert_eq!(
-            press(&mut text, Key::Enter, KeyModifiers::NONE),
+            press(&mut text, Key::Char('s'), KeyModifiers::CONTROL),
             Some(Msg::SaveNote("old\ntext!".into()))
         );
     }
