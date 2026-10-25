@@ -28,7 +28,22 @@ section "Performance" "perf"
 section "Documentation" "docs"
 section "Other" "chore|ci|refactor|test|build|style"
 
-printf 'Install or update with `cargo install tackline`.\n'
+cat <<'MD'
+## Install
+
+```sh
+# macOS, Linux
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/terminalkitten/tackline/releases/latest/download/tackline-installer.sh | sh
+# Homebrew
+brew install terminalkitten/tap/tackline
+# Windows (PowerShell)
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/terminalkitten/tackline/releases/latest/download/tackline-installer.ps1 | iex"
+# Cargo
+cargo install tackline
+```
+
+Or download an archive for your platform below. More in the [install guide](https://terminalkitten.github.io/tackline/getting-started/).
+MD
 if [ -n "$prev" ]; then
   printf '\n**Full changes**: %s/compare/%s...%s\n' "$repo" "$prev" "$tag"
 fi
