@@ -128,15 +128,7 @@ pub fn build(input: Input) -> CodeProps {
             let n = input.first_line + i;
             let row = input.diff.map(|d| &d[i]);
             let cursor = input.cursor.filter(|(l, _)| *l == n).map(|(_, x)| x);
-            let covering = input
-                .marks
-                .iter()
-                .filter(|m| (m.start..=m.end).contains(&n));
-            let marker = match covering.map(|m| m.stale).max() {
-                Some(true) => Span::styled("⚠", Style::new().fg(Color::Yellow)),
-                Some(false) => Span::styled("●", Style::new().fg(Color::Cyan)),
-                None => Span::raw(" "),
-            };
+            let marker = marker(input.marks, n);
             let sel = input.selection.and_then(|s| s.cols(n));
             let mut spans = match row {
                 None => vec![Span::styled(format!("{:>digits$} ", n + 1), gutter), marker],
@@ -193,6 +185,31 @@ pub fn build(input: Input) -> CodeProps {
         focused: input.focused,
         scroll: 0,
     }
+}
+
+/// Gutter glyph for line `n`: `●` on a note's first and last line, `│` in
+/// between; yellow with `⚠` on the first line when stale. Where notes
+/// overlap, an end beats a middle.
+fn marker(marks: &[Mark], n: usize) -> Span<'static> {
+    let covering: Vec<&Mark> = marks
+        .iter()
+        .filter(|m| (m.start..=m.end).contains(&n))
+        .collect();
+    if covering.is_empty() {
+        return Span::raw(" ");
+    }
+    let stale = covering.iter().any(|m| m.stale);
+    let glyph = if covering.iter().any(|m| m.stale && m.start == n) {
+        "⚠"
+    } else if covering.iter().any(|m| m.start == n || m.end == n) {
+        "●"
+    } else {
+        "│"
+    };
+    Span::styled(
+        glyph,
+        Style::new().fg(if stale { Color::Yellow } else { Color::Cyan }),
+    )
 }
 
 /// Gutter width for a diff: old and new line numbers, sign, marker, space.
@@ -369,6 +386,27 @@ impl AppComponent<Msg, NoUserEvent> for CodeView {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn markers_cap_spans_and_dot_single_lines() {
+        let mark = |start, end, stale| Mark {
+            start,
+            end,
+            stale,
+            note: 0,
+        };
+        let marks = [mark(0, 3, false), mark(5, 5, false), mark(7, 9, true)];
+        let glyphs: String = (0..11)
+            .map(|n| marker(&marks, n).content.to_string())
+            .collect();
+        assert_eq!(glyphs, "●││● ● ⚠│● ");
+        // Overlap: the inner note's ends show through the outer one's line.
+        let marks = [mark(0, 4, false), mark(2, 2, false)];
+        let glyphs: String = (0..5)
+            .map(|n| marker(&marks, n).content.to_string())
+            .collect();
+        assert_eq!(glyphs, "●│●│●");
+    }
 
     #[test]
     fn visible_slices_and_marks_cursor() {

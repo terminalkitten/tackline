@@ -6,7 +6,7 @@ expression: "frame(&mut m, None)"
 │  repo/ ▼                     ││1   pub fn matches(query: &str, items: &[Strin│
 │    scripts/ ▶                ││2       let mut out = Vec::new();             │
 │    src/ ▶                    ││3 ●     for item in items {                   │
-│    web/ ▶                    ││4 ●         if item.contains(query) {         │
+│    web/ ▶                    ││4 │         if item.contains(query) {         │
 │                              ││5 ●             out.push(item.clone());       │
 │                              ││6           }                                 │
 │                              ││7       }                                     │
