@@ -144,8 +144,6 @@ The usage docs are in [`docs/site/`](docs/site/index.md), built with
 ```sh
 dokk serve --root docs   # live preview
 dokk build --root docs   # static site in docs/.dokk/build
-```
-
-The spec is in [`docs/PLAN.md`](docs/PLAN.md). Built on
+``` Built on
 [tui-realm](https://github.com/veeso/tui-realm), syntect with two-face, git2,
 nucleo and ripgrep's libraries.
