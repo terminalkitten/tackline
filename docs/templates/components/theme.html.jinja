@@ -2,7 +2,10 @@
    a button that copies its command. #}
 {% from "partials/icons.html.jinja" import icon %}
 <figure class="tk-theme" id="{{ id }}">
-  <a href="{{ directive.attrs.src }}"><img src="{{ directive.attrs.src }}" alt="tackline with the {{ directive.title }} theme" loading="lazy"></a>
+  {# Same zoom as dokk's ::image: click opens the full size in a dialog. #}
+  <a href="{{ directive.attrs.src }}" class="dk-image-zoom" data-dk-zoom aria-label="Enlarge image: {{ directive.title }}">
+    <img src="{{ directive.attrs.src }}" alt="tackline with the {{ directive.title }} theme" loading="lazy" decoding="async">
+  </a>
   <figcaption>
     <strong>{{ directive.title }}</strong>
     <div class="tk-theme-cmd">
