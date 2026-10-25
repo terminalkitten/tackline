@@ -7,12 +7,16 @@ edition = "2024"
 anyhow = "1"
 clap = { version = "4.6", features = ["derive"] }
 git2 = "0.21"
+ignore = "0.4.33"
 jiff = { version = "0.2", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 slug = "0.1.6"
 tempfile = "3.27"
 thiserror = "2"
+tui-realm-stdlib = "4.1"
+tui-realm-treeview = "4.1"
+tuirealm = "4.1"
 two-face = "0.5.2"
 ulid = "3"
 

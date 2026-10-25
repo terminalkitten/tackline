@@ -1,0 +1,18 @@
+---
+source: src/app/run.rs
+expression: frame(&mut m)
+---
+╭ Files ───────────────────────╮╭ No file ─────────────────────────────────────╮
+│  repo/ ▼                     ││Select a file in the tree and press Enter     │
+│    scripts/ ▶                ││                                              │
+│    src/ ▶                    ││                                              │
+│    web/ ▶                    ││                                              │
+│                              ││                                              │
+│                              ││                                              │
+│                              ││                                              │
+│                              ││                                              │
+│                              ││                                              │
+│                              ││                                              │
+│                              ││                                              │
+╰──────────────────────────────╯╰──────────────────────────────────────────────╯
+ FILES  no session  │ ? help  q quit

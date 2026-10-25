@@ -1,0 +1,16 @@
+---
+source: src/components/help_popup.rs
+expression: "render_to_string(&mut HelpPopup::default(),\nSize::new(size.width, size.height))"
+---
+╭────────────────────── Keys ───────────────────────╮
+│ 1 / 2 / 3       Files / Diff / Session view       │
+│ Tab             Switch tree ↔ code                │
+│ j k ↑ ↓         Move down / up                    │
+│ h l ← →         Tree: close / open · Code: column │
+│ Enter           Open file / toggle directory      │
+│ gg / G          Top / bottom                      │
+│ Ctrl+D / Ctrl+U Half page down / up               │
+│ 0 / $           Line start / end                  │
+│ ?               This help                         │
+│ q               Quit                              │
+╰───────────────────────────────────────────────────╯

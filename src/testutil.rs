@@ -1,9 +1,21 @@
 //! Fixture git repo shared by tests.
 
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use tempfile::TempDir;
+
+/// A repo at `<tempdir>/repo`, so its folder name is stable in snapshots.
+pub struct Fixture {
+    _dir: TempDir,
+    path: PathBuf,
+}
+
+impl Fixture {
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+}
 
 const FILES: &[(&str, &str)] = &[
     (
@@ -47,8 +59,12 @@ defineProps<{ title: string }>()
 
 /// Temp git repo with Rust, Python, TypeScript and Vue files, one commit,
 /// and one uncommitted change (to `web/app.ts`).
-pub fn fixture_repo() -> TempDir {
-    let dir = tempfile::tempdir().unwrap();
+pub fn fixture_repo() -> Fixture {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = Fixture {
+        path: tmp.path().join("repo"),
+        _dir: tmp,
+    };
     for (path, body) in FILES {
         write(dir.path(), path, body);
     }

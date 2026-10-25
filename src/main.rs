@@ -3,13 +3,16 @@ use clap::{Parser, Subcommand};
 
 use tackline::model::Session;
 use tackline::store::{self, FsStore, Store};
-use tackline::{compile, git};
+use tackline::{app, compile, git, highlight};
 
 /// Annotate code with prompt instructions and compile them into one prompt
 /// for a coding agent.
 #[derive(Parser)]
 #[command(version)]
 struct Cli {
+    /// Syntax theme (default: follows the terminal's light/dark hint).
+    #[arg(long)]
+    theme: Option<String>,
     #[command(subcommand)]
     command: Option<Command>,
 }
@@ -32,7 +35,14 @@ fn main() -> Result<()> {
     let store = FsStore::new(&root);
 
     match cli.command {
-        None => bail!("the TUI isn't built yet; use `tackline export` or `tackline sessions`"),
+        None => {
+            let Some(theme) = highlight::load_theme(cli.theme.as_deref()) else {
+                let names: Vec<_> = highlight::theme_names().collect();
+                bail!("unknown theme; available: {}", names.join(", "));
+            };
+            let model = app::Model::new(root, theme, store.load_sessions()?, store.load_state()?);
+            app::run(model)?;
+        }
         Some(Command::Sessions) => {
             let active = store.load_state()?.active_session_id;
             for s in store.load_sessions()? {

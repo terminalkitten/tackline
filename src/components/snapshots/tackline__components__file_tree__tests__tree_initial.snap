@@ -1,0 +1,12 @@
+---
+source: src/components/file_tree.rs
+expression: "render_to_string(&mut tree, Size::new(30, 8))"
+---
+╭ Files ─────────────────────╮
+│  repo/ ▼                   │
+│    scripts/ ▶              │
+│    src/ ▶                  │
+│    web/ ▶                  │
+│                            │
+│                            │
+╰────────────────────────────╯

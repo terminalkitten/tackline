@@ -1,0 +1,5 @@
+---
+source: src/components/status_bar.rs
+expression: "render_to_string(&mut bar, Size::new(70, 1))"
+---
+ FILES  perf (3 notes)  src/a.rs 2:5  │ ? help  q quit
