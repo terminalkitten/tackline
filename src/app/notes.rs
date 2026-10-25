@@ -173,10 +173,11 @@ impl Model {
         self.sessions.iter().position(|s| &s.id == id)
     }
 
-    /// Tab in the note popup: change the target session (new notes only).
+    /// Tab / Shift+Tab in the note popup: change the target session. For a
+    /// note being edited, saving then moves it there.
     pub(super) fn cycle_session(&mut self, step: isize) {
         let len = self.sessions.len() as isize;
-        if let Some(draft) = self.draft.as_mut().filter(|d| d.editing.is_none()) {
+        if let Some(draft) = self.draft.as_mut() {
             draft.target = (draft.target as isize + step).rem_euclid(len) as usize;
         }
     }
@@ -190,29 +191,47 @@ impl Model {
             self.draft = Some(draft);
             return self.toast(ToastKind::Warning, "The note needs some text");
         }
-        let session = &mut self.sessions[draft.target];
+        let mut verb = "Added note to";
         match &draft.editing {
             Some(id) => {
-                if let Some(note) = session.notes.iter_mut().find(|n| &n.id == id) {
+                let Some((from, i)) = self.find_note(id) else {
+                    return;
+                };
+                if from == draft.target {
+                    self.sessions[from].notes[i].text = text.to_string();
+                    verb = "Updated note in";
+                } else {
+                    // Moved: out of its session, to the end of the target.
+                    let mut note = self.sessions[from].notes.remove(i);
                     note.text = text.to_string();
+                    self.sessions[draft.target].notes.push(note);
+                    let result = self.store.save_session(&self.sessions[from]);
+                    self.saved(result);
+                    verb = "Moved note to";
                 }
             }
-            None => session
-                .notes
-                .push(Note::new(draft.file, draft.span, draft.anchor, text)),
+            None => self.sessions[draft.target].notes.push(Note::new(
+                draft.file,
+                draft.span,
+                draft.anchor,
+                text,
+            )),
         }
-        let name = session.name.clone();
+        let name = self.sessions[draft.target].name.clone();
         let result = self.store.save_session(&self.sessions[draft.target]);
         self.saved(result);
         self.popup = None;
         self.selection = None;
         self.notes_changed();
-        let verb = if draft.editing.is_some() {
-            "Updated note in"
-        } else {
-            "Added note to"
-        };
         self.toast(ToastKind::Info, format!("{verb} \"{name}\""));
+    }
+
+    /// (session index, note index) of the note with this id.
+    fn find_note(&self, id: &str) -> Option<(usize, usize)> {
+        self.sessions.iter().enumerate().find_map(|(s, session)| {
+            let i = session.notes.iter().position(|n| n.id == id)?;
+            Some((s, i))
+        })
     }
 
     /// The note popup's header.
@@ -224,7 +243,7 @@ impl Model {
             "Add note"
         };
         let location = format!("{}:{}", draft.file.display(), draft.span.ui_label());
-        let can_cycle = draft.editing.is_none() && self.sessions.len() > 1;
+        let can_cycle = self.sessions.len() > 1;
         let session = &self.sessions.get(draft.target)?.name;
         Some(note_popup::header(
             title,
@@ -639,6 +658,56 @@ mod tests {
     }
 
     #[test]
+    fn shift_tab_while_editing_moves_the_note() {
+        let repo = fixture_repo();
+        let mut m = model(repo.path());
+        press(
+            &mut m,
+            &[Msg::NewSession("A".into()), Msg::NewSession("B".into())],
+        );
+        m.update(Msg::PickSession(0));
+        m.update(Msg::OpenFile("web/app.ts".into()));
+        press(&mut m, &[Msg::AddNote, Msg::SaveNote("keep".into())]);
+        press(
+            &mut m,
+            &[
+                Msg::Move(Motion::Down),
+                Msg::AddNote,
+                Msg::SaveNote("move me".into()),
+            ],
+        );
+        let id = m.sessions[0].notes[1].id.clone();
+
+        // `c` on the noted line opens it; Shift+Tab picks B; save moves it.
+        m.update(Msg::AddNote);
+        assert!(m.draft.as_ref().unwrap().editing.is_some());
+        m.update(Msg::CycleSession(-1));
+        assert_eq!(m.draft.as_ref().unwrap().target, 1);
+        m.update(Msg::SaveNote("moved".into()));
+
+        let texts = |m: &Model, s: usize| {
+            m.sessions[s]
+                .notes
+                .iter()
+                .map(|n| n.text.clone())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(texts(&m, 0), ["keep"]);
+        assert_eq!(texts(&m, 1), ["moved"]);
+        assert_eq!(m.sessions[1].notes[0].id, id, "same note, moved");
+        assert_eq!(m.toast.as_ref().unwrap().text, "Moved note to \"B\"");
+        assert_eq!(
+            m.active_session().unwrap().name,
+            "A",
+            "active session unchanged"
+        );
+        assert_eq!(m.marks.len(), 1, "gutter shows only A's note now");
+        // Both sessions were saved.
+        let saved = m.store.load_sessions().unwrap();
+        assert_eq!((saved[0].notes.len(), saved[1].notes.len()), (1, 1));
+    }
+
+    #[test]
     fn empty_text_keeps_popup() {
         let repo = fixture_repo();
         let mut m = model(repo.path());
@@ -690,7 +759,7 @@ mod tests {
         assert_eq!(
             m.draft.as_ref().unwrap().target,
             0,
-            "editing can't move a note"
+            "one session: nowhere to move"
         );
         m.update(Msg::SaveNote("TWO".into()));
         assert_eq!(texts(&m), ["one", "TWO", "three"]);

@@ -31,6 +31,7 @@ const KEYS: &[(&str, &str)] = &[
     ("c", "Note the selection or line (or open its note)"),
     ("d", "Delete the note on this line"),
     ("Note: Enter", "Save (Shift+Enter or \\ Enter: newline)"),
+    ("Note: Tab", "Next / previous session (moves the note)"),
     ("Esc", "Clear the selection"),
     ("Diff: j k", "Previous / next changed file"),
     ("Diff: r", "Reload the diff"),
