@@ -47,7 +47,7 @@ pub enum Id {
     Toast,
     NoteHeader,
     NoteText,
-    ConfirmDelete,
+    Confirm,
     QueryInput,
     PickerResults,
 }
@@ -59,6 +59,8 @@ pub enum Popup {
     SessionPicker,
     Note,
     ConfirmDelete,
+    /// First run: offer to ignore `.tackline/`.
+    Gitignore,
     /// Ctrl+P
     Finder,
     /// Ctrl+F
@@ -140,6 +142,8 @@ pub enum Msg {
     EditNote,
     AskDeleteNote,
     DeleteNote,
+    /// Answer to a yes/no popup.
+    Confirm(bool),
     MoveNote(isize),
     /// Diff view: select the previous/next changed file.
     DiffMove(isize),
@@ -336,7 +340,7 @@ impl Model {
             (Some(Popup::NewSession), ..) => Id::NameInput,
             (Some(Popup::SessionPicker), ..) => Id::SessionPicker,
             (Some(Popup::Note), ..) => Id::NoteText,
-            (Some(Popup::ConfirmDelete), ..) => Id::ConfirmDelete,
+            (Some(Popup::ConfirmDelete | Popup::Gitignore), ..) => Id::Confirm,
             (Some(Popup::Finder | Popup::Search | Popup::FindInFile), ..) => Id::QueryInput,
             (None, View::Files, Focus::Tree) => Id::FileTree,
             (None, View::Diff, Focus::Tree) => Id::DiffFiles,
@@ -410,6 +414,11 @@ impl Model {
             Msg::EditNote => self.edit_note(),
             Msg::AskDeleteNote => self.ask_delete_note(),
             Msg::DeleteNote => self.delete_note(),
+            Msg::Confirm(yes) => match self.popup.take() {
+                Some(Popup::ConfirmDelete) if yes => self.delete_note(),
+                Some(Popup::Gitignore) => self.answer_gitignore(yes),
+                _ => {}
+            },
             Msg::MoveNote(step) => self.move_note(step),
             Msg::QueryChanged(query) => self.query_changed(query),
             Msg::QueryEnter(query) => self.query_enter(query),

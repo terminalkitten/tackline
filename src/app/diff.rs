@@ -3,10 +3,11 @@
 use tuirealm::ratatui::style::{Color, Modifier, Style};
 use tuirealm::ratatui::text::{Line, Span};
 
-use super::{Content, Cursor, Id, Model, OpenFile, ToastKind};
+use super::{Content, Cursor, Id, Model, OpenFile, Popup, ToastKind};
 use crate::components::code_view::CodeProps;
 use crate::git;
 use crate::model::View;
+use crate::store::DATA_DIR;
 
 impl Model {
     /// Turn on the Diff view (inside a git repo). Starts in it when there
@@ -18,7 +19,21 @@ impl Model {
         if !self.diff.is_empty() {
             self.show_view(View::Diff);
         }
+        if !self.state.gitignore_asked && !git::is_ignored(&self.root, DATA_DIR) {
+            self.popup = Some(Popup::Gitignore);
+        }
         self
+    }
+
+    pub(super) fn answer_gitignore(&mut self, yes: bool) {
+        if yes {
+            match git::add_to_gitignore(&self.root, &format!("{DATA_DIR}/")) {
+                Ok(()) => self.toast(ToastKind::Info, "Added .tackline/ to .gitignore"),
+                Err(e) => self.toast(ToastKind::Error, format!("Couldn't update .gitignore: {e}")),
+            }
+        }
+        self.state.gitignore_asked = true;
+        self.save_state();
     }
 
     /// `r`: reload the diff, staying on the same file and line if they're
@@ -165,12 +180,13 @@ mod tests {
     use crate::testutil::fixture_repo;
     use std::fs;
     use std::path::Path;
-
     fn model(root: &Path, base: Option<&str>) -> Model {
         let theme = load_theme(Some("base16-ocean.dark")).unwrap();
         let mut m = Model::new(root.into(), theme, Box::new(MemStore::default()))
             .unwrap()
             .with_git(base.map(String::from));
+        // Answer the first-run .gitignore question.
+        m.update(Msg::Confirm(false));
         m.update(Msg::Resize(80, 20));
         m
     }
@@ -273,6 +289,36 @@ mod tests {
         m.update(Msg::ShowView(View::Session));
         m.update(Msg::ShowView(View::Files));
         assert_eq!(m.location().unwrap(), "src/matcher.rs 9:1");
+    }
+
+    #[test]
+    fn offers_gitignore_once() {
+        let repo = crate::testutil::fixture_repo();
+        let theme = load_theme(Some("base16-ocean.dark")).unwrap();
+        let store = || Box::new(crate::store::FsStore::new(repo.path()));
+        let mut m = Model::new(repo.path().into(), theme.clone(), store())
+            .unwrap()
+            .with_git(None);
+        assert_eq!(m.popup, Some(Popup::Gitignore));
+        m.update(Msg::Confirm(false));
+        assert_eq!(m.popup, None);
+        let m = Model::new(repo.path().into(), theme.clone(), store())
+            .unwrap()
+            .with_git(None);
+        assert_eq!(m.popup, None, "asked once");
+
+        let repo = crate::testutil::fixture_repo();
+        let store = || Box::new(crate::store::FsStore::new(repo.path()));
+        let mut m = Model::new(repo.path().into(), theme.clone(), store())
+            .unwrap()
+            .with_git(None);
+        m.update(Msg::Confirm(true));
+        assert!(
+            fs::read_to_string(repo.path().join(".gitignore"))
+                .unwrap()
+                .contains(".tackline/")
+        );
+        assert!(m.store.load_state().unwrap().gitignore_asked);
     }
 
     #[test]

@@ -2,7 +2,6 @@
 //! a text box (tui-realm-textarea). The text is widget state; it's remounted
 //! with the starting text each time the popup opens.
 
-use tui_realm_stdlib::components::Paragraph;
 use tui_realm_textarea::{TEXTAREA_CMD_NEWLINE, TextArea};
 use tuirealm::command::{Cmd, Direction, Position};
 use tuirealm::component::{AppComponent, Component};
@@ -10,7 +9,7 @@ use tuirealm::event::{Event, Key, KeyModifiers, NoUserEvent};
 use tuirealm::props::{HorizontalAlignment, Title};
 use tuirealm::ratatui::layout::{Constraint, Layout, Rect};
 use tuirealm::ratatui::style::{Color, Modifier, Style};
-use tuirealm::ratatui::text::{Line, Span, Text};
+use tuirealm::ratatui::text::{Line, Span};
 use tuirealm::state::{State, StateValue};
 
 use super::code_view::{CodeProps, Rows};
@@ -180,33 +179,6 @@ impl AppComponent<Msg, NoUserEvent> for NoteText {
         };
         self.component.perform(cmd);
         Some(Msg::Redraw)
-    }
-}
-
-/// `d` in the Session view asks first.
-#[derive(Component)]
-pub struct ConfirmDelete {
-    component: Paragraph,
-}
-
-impl Default for ConfirmDelete {
-    fn default() -> Self {
-        Self {
-            component: Paragraph::default()
-                .borders(borders(true).color(Color::Yellow))
-                .title(Title::from(" Delete note? ").alignment(HorizontalAlignment::Left))
-                .text(Text::from(" y / Enter: delete    n / Esc: keep")),
-        }
-    }
-}
-
-impl AppComponent<Msg, NoUserEvent> for ConfirmDelete {
-    fn on(&mut self, ev: &Event<NoUserEvent>) -> Option<Msg> {
-        match key(ev)? {
-            (Key::Char('y') | Key::Enter, false) => Some(Msg::DeleteNote),
-            (Key::Char('n') | Key::Esc | Key::Char('q'), false) => Some(Msg::ClosePopup),
-            _ => None,
-        }
     }
 }
 

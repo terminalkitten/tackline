@@ -10,6 +10,31 @@ pub fn repo_root(path: &Path) -> Option<PathBuf> {
         .map(Path::to_path_buf)
 }
 
+/// Whether git ignores the directory `dir` (relative to the repo root),
+/// whether or not it exists yet.
+pub fn is_ignored(root: &Path, dir: &str) -> bool {
+    let Ok(repo) = Repository::open(root) else {
+        return false;
+    };
+    // A trailing slash tells libgit2 it's a directory, so `dir/` patterns
+    // match even before the directory exists.
+    [dir.to_string(), format!("{dir}/")]
+        .iter()
+        .any(|p| repo.is_path_ignored(p).unwrap_or(false))
+}
+
+/// Append `entry` to the repo's `.gitignore`, creating it if needed.
+pub fn add_to_gitignore(root: &Path, entry: &str) -> std::io::Result<()> {
+    let path = root.join(".gitignore");
+    let mut text = std::fs::read_to_string(&path).unwrap_or_default();
+    if !text.is_empty() && !text.ends_with('\n') {
+        text.push('\n');
+    }
+    text.push_str(entry);
+    text.push('\n');
+    std::fs::write(path, text)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RowKind {
     Hunk,
@@ -135,6 +160,20 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         // ponytail: assumes the system temp dir isn't inside a git repo.
         assert_eq!(repo_root(dir.path()), None);
+    }
+
+    #[test]
+    fn gitignore_entry() {
+        let repo = crate::testutil::fixture_repo();
+        let dir = ".tackline";
+        assert!(!is_ignored(repo.path(), dir));
+        fs::write(repo.path().join(".gitignore"), "target").unwrap();
+        add_to_gitignore(repo.path(), ".tackline/").unwrap();
+        assert_eq!(
+            fs::read_to_string(repo.path().join(".gitignore")).unwrap(),
+            "target\n.tackline/\n"
+        );
+        assert!(is_ignored(repo.path(), dir));
     }
 
     #[test]

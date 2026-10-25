@@ -133,4 +133,7 @@ pub struct State {
     pub active_session_id: Option<String>,
     pub last_view: Option<View>,
     pub last_file: Option<PathBuf>,
+    /// The "add .tackline/ to .gitignore" question was answered.
+    #[serde(default)]
+    pub gitignore_asked: bool,
 }

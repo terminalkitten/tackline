@@ -8,8 +8,8 @@ expression: "frame(&mut m, None)"
 │▌    │         if item.contains(query) {                                      │
 │▌    │             out.push(item.clone());                                    │
 │▌    use an iterator chain                                                    │
-│                   ╭ Delete note? ────────────────────────╮                   │
-│                   │ y / Enter: delete    n / Esc: keep   │                   │
+│                   ╭──────────────────────────────────────╮                   │
+│                   │                                      │                   │
 │                   ╰──────────────────────────────────────╯                   │
 │                                                                              │
 │                                                                              │

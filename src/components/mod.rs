@@ -1,6 +1,7 @@
 //! Thin components: they turn key events into `Msg`s and render from props.
 
 pub mod code_view;
+pub mod confirm;
 pub mod diff_view;
 pub mod file_tree;
 pub mod finder_popup;

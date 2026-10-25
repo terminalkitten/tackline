@@ -19,12 +19,13 @@ use tuirealm::terminal::{CrosstermTerminalAdapter, TerminalAdapter};
 
 use super::{Id, Model, Msg, Popup, layout};
 use crate::components::code_view::CodeView;
+use crate::components::confirm::{self, Confirm};
 use crate::components::diff_view::DiffFiles;
 use crate::components::file_tree::{FileTree, MARKED, build_tree};
 use crate::components::finder_popup::{self, PickerResults, QueryInput};
 use crate::components::help_popup::{self, HelpPopup};
 use crate::components::name_input::NameInput;
-use crate::components::note_popup::{self, ConfirmDelete, NoteHeader, NoteText};
+use crate::components::note_popup::{self, NoteHeader, NoteText};
 use crate::components::session_picker::{self, SessionPicker};
 use crate::components::session_view::SessionView;
 use crate::components::status_bar::{self, StatusBar};
@@ -145,11 +146,7 @@ fn mount(root: &Path, listener: EventListenerCfg<NoUserEvent>) -> Result<App> {
         Box::new(PickerResults::default()),
         vec![],
     )?;
-    app.mount(
-        Id::ConfirmDelete,
-        Box::new(ConfirmDelete::default()),
-        vec![],
-    )?;
+    app.mount(Id::Confirm, Box::new(Confirm::default()), vec![])?;
     Ok(app)
 }
 
@@ -190,6 +187,11 @@ fn sync(model: &mut Model, app: &mut App, opened: Option<Popup>, shift_enter: bo
                 Box::new(NoteText::new(text, shift_enter)),
                 vec![],
             )?;
+        }
+        Some(p @ (Popup::ConfirmDelete | Popup::Gitignore)) => {
+            for (attr, value) in confirm::attrs(p) {
+                app.attr(&Id::Confirm, attr, value)?;
+            }
         }
         Some(Popup::Finder | Popup::Search | Popup::FindInFile) => {
             let kind = model.picker.as_ref().map(|p| p.kind);
@@ -290,8 +292,8 @@ fn draw(app: &mut App, model: &Model, f: &mut Frame) {
                 centered(screen, 44.min(screen.width), height),
             ))
         }
-        Some(Popup::ConfirmDelete) => {
-            Some((Id::ConfirmDelete, centered(screen, 40.min(screen.width), 3)))
+        Some(p @ (Popup::ConfirmDelete | Popup::Gitignore)) => {
+            Some((Id::Confirm, confirm::area(screen, p)))
         }
         Some(Popup::FindInFile) => Some((Id::QueryInput, finder_popup::find_area(areas.code))),
         Some(Popup::Note | Popup::Finder | Popup::Search) | None => None,
@@ -369,6 +371,11 @@ mod tests {
         )
         .unwrap();
         let mut m = model(repo.path()).with_git(None);
+        insta::assert_snapshot!(
+            "frame_gitignore_offer",
+            frame(&mut m, Some(Popup::Gitignore))
+        );
+        m.update(Msg::Confirm(false));
         m.update(Msg::Resize(80, 14));
         insta::assert_snapshot!("frame_diff_list", frame(&mut m, None));
         m.update(Msg::DiffMove(1));

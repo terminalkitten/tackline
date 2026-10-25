@@ -308,6 +308,7 @@ mod tests {
             active_session_id: Some("abc".into()),
             last_view: Some(View::Diff),
             last_file: Some("src/main.rs".into()),
+            gitignore_asked: true,
         };
         store.save_state(&state).unwrap();
         assert_eq!(store.load_state().unwrap(), state);
