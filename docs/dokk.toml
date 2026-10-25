@@ -4,6 +4,11 @@
 title = "tackline"
 description = "Steer coding agents from your terminal: put prompt instructions on lines of code."
 content_dir = "site"
+site_url = "https://terminalkitten.github.io/tackline/"
+
+[links]
+github = "https://github.com/terminalkitten/tackline"
+edit_url = "https://github.com/terminalkitten/tackline/edit/main/docs/site/{path}"
 
 [theme]
 color = "teal"
