@@ -423,47 +423,47 @@
 <rect x="919.2" y="84" width="8.8" height="18" fill="#3a341c"/>
 <text x="927.6" y="98" fill="#65737e">│</text>
 <text x="12" y="116" fill="#c0c5ce">│</text>
-<rect x="20.4" y="102" width="8.8" height="18" fill="#c0c5ce"/>
-<rect x="28.8" y="102" width="8.8" height="18" fill="#c0c5ce"/>
-<rect x="37.2" y="102" width="8.8" height="18" fill="#c0c5ce"/>
-<rect x="45.6" y="102" width="8.8" height="18" fill="#c0c5ce"/>
-<rect x="54" y="102" width="8.8" height="18" fill="#c0c5ce"/>
-<rect x="62.400000000000006" y="102" width="8.8" height="18" fill="#c0c5ce"/>
-<rect x="70.80000000000001" y="102" width="8.8" height="18" fill="#c0c5ce"/>
-<text x="70.80000000000001" y="116" fill="#2b303b" font-weight="bold">m</text>
-<rect x="79.2" y="102" width="8.8" height="18" fill="#c0c5ce"/>
-<text x="79.2" y="116" fill="#2b303b" font-weight="bold">a</text>
-<rect x="87.60000000000001" y="102" width="8.8" height="18" fill="#c0c5ce"/>
-<text x="87.60000000000001" y="116" fill="#2b303b" font-weight="bold">t</text>
-<rect x="96" y="102" width="8.8" height="18" fill="#c0c5ce"/>
-<text x="96" y="116" fill="#2b303b" font-weight="bold">c</text>
-<rect x="104.4" y="102" width="8.8" height="18" fill="#c0c5ce"/>
-<text x="104.4" y="116" fill="#2b303b" font-weight="bold">h</text>
-<rect x="112.80000000000001" y="102" width="8.8" height="18" fill="#c0c5ce"/>
-<text x="112.80000000000001" y="116" fill="#2b303b" font-weight="bold">e</text>
-<rect x="121.2" y="102" width="8.8" height="18" fill="#c0c5ce"/>
-<text x="121.2" y="116" fill="#2b303b" font-weight="bold">r</text>
-<rect x="129.60000000000002" y="102" width="8.8" height="18" fill="#c0c5ce"/>
-<text x="129.60000000000002" y="116" fill="#2b303b" font-weight="bold">.</text>
-<rect x="138" y="102" width="8.8" height="18" fill="#c0c5ce"/>
-<text x="138" y="116" fill="#2b303b" font-weight="bold">r</text>
-<rect x="146.4" y="102" width="8.8" height="18" fill="#c0c5ce"/>
-<text x="146.4" y="116" fill="#2b303b" font-weight="bold">s</text>
-<rect x="154.8" y="102" width="8.8" height="18" fill="#ebcb8b"/>
-<rect x="163.20000000000002" y="102" width="8.8" height="18" fill="#ebcb8b"/>
-<text x="163.20000000000002" y="116" fill="#2b303b" font-weight="bold">●</text>
-<rect x="171.6" y="102" width="8.8" height="18" fill="#c0c5ce"/>
-<rect x="180" y="102" width="8.8" height="18" fill="#c0c5ce"/>
-<rect x="188.4" y="102" width="8.8" height="18" fill="#c0c5ce"/>
-<rect x="196.8" y="102" width="8.8" height="18" fill="#c0c5ce"/>
-<rect x="205.20000000000002" y="102" width="8.8" height="18" fill="#c0c5ce"/>
-<rect x="213.60000000000002" y="102" width="8.8" height="18" fill="#c0c5ce"/>
-<rect x="222" y="102" width="8.8" height="18" fill="#c0c5ce"/>
-<rect x="230.4" y="102" width="8.8" height="18" fill="#c0c5ce"/>
-<rect x="238.8" y="102" width="8.8" height="18" fill="#c0c5ce"/>
-<rect x="247.20000000000002" y="102" width="8.8" height="18" fill="#c0c5ce"/>
-<rect x="255.60000000000002" y="102" width="8.8" height="18" fill="#c0c5ce"/>
-<rect x="264" y="102" width="8.8" height="18" fill="#c0c5ce"/>
+<rect x="20.4" y="102" width="8.8" height="18" fill="#65737e"/>
+<rect x="28.8" y="102" width="8.8" height="18" fill="#65737e"/>
+<rect x="37.2" y="102" width="8.8" height="18" fill="#65737e"/>
+<rect x="45.6" y="102" width="8.8" height="18" fill="#65737e"/>
+<rect x="54" y="102" width="8.8" height="18" fill="#65737e"/>
+<rect x="62.400000000000006" y="102" width="8.8" height="18" fill="#65737e"/>
+<rect x="70.80000000000001" y="102" width="8.8" height="18" fill="#65737e"/>
+<text x="70.80000000000001" y="116" fill="#dfe1e8" font-weight="bold">m</text>
+<rect x="79.2" y="102" width="8.8" height="18" fill="#65737e"/>
+<text x="79.2" y="116" fill="#dfe1e8" font-weight="bold">a</text>
+<rect x="87.60000000000001" y="102" width="8.8" height="18" fill="#65737e"/>
+<text x="87.60000000000001" y="116" fill="#dfe1e8" font-weight="bold">t</text>
+<rect x="96" y="102" width="8.8" height="18" fill="#65737e"/>
+<text x="96" y="116" fill="#dfe1e8" font-weight="bold">c</text>
+<rect x="104.4" y="102" width="8.8" height="18" fill="#65737e"/>
+<text x="104.4" y="116" fill="#dfe1e8" font-weight="bold">h</text>
+<rect x="112.80000000000001" y="102" width="8.8" height="18" fill="#65737e"/>
+<text x="112.80000000000001" y="116" fill="#dfe1e8" font-weight="bold">e</text>
+<rect x="121.2" y="102" width="8.8" height="18" fill="#65737e"/>
+<text x="121.2" y="116" fill="#dfe1e8" font-weight="bold">r</text>
+<rect x="129.60000000000002" y="102" width="8.8" height="18" fill="#65737e"/>
+<text x="129.60000000000002" y="116" fill="#dfe1e8" font-weight="bold">.</text>
+<rect x="138" y="102" width="8.8" height="18" fill="#65737e"/>
+<text x="138" y="116" fill="#dfe1e8" font-weight="bold">r</text>
+<rect x="146.4" y="102" width="8.8" height="18" fill="#65737e"/>
+<text x="146.4" y="116" fill="#dfe1e8" font-weight="bold">s</text>
+<rect x="154.8" y="102" width="8.8" height="18" fill="#65737e"/>
+<rect x="163.20000000000002" y="102" width="8.8" height="18" fill="#65737e"/>
+<text x="163.20000000000002" y="116" fill="#ebcb8b" font-weight="bold">●</text>
+<rect x="171.6" y="102" width="8.8" height="18" fill="#65737e"/>
+<rect x="180" y="102" width="8.8" height="18" fill="#65737e"/>
+<rect x="188.4" y="102" width="8.8" height="18" fill="#65737e"/>
+<rect x="196.8" y="102" width="8.8" height="18" fill="#65737e"/>
+<rect x="205.20000000000002" y="102" width="8.8" height="18" fill="#65737e"/>
+<rect x="213.60000000000002" y="102" width="8.8" height="18" fill="#65737e"/>
+<rect x="222" y="102" width="8.8" height="18" fill="#65737e"/>
+<rect x="230.4" y="102" width="8.8" height="18" fill="#65737e"/>
+<rect x="238.8" y="102" width="8.8" height="18" fill="#65737e"/>
+<rect x="247.20000000000002" y="102" width="8.8" height="18" fill="#65737e"/>
+<rect x="255.60000000000002" y="102" width="8.8" height="18" fill="#65737e"/>
+<rect x="264" y="102" width="8.8" height="18" fill="#65737e"/>
 <text x="272.40000000000003" y="116" fill="#c0c5ce">│</text>
 <text x="280.8" y="116" fill="#65737e">│</text>
 <rect x="289.2" y="102" width="8.8" height="18" fill="#3a341c"/>

@@ -168,7 +168,14 @@ impl FileTree {
             .borders(borders(true))
             .inactive(Style::new())
             .title(Title::from(" Files ").alignment(HorizontalAlignment::Left))
-            .highlight_style(Style::new().add_modifier(Modifier::REVERSED))
+            // Explicit colors, not REVERSED: the widget paints the row first
+            // and writes the yellow ● on top, which REVERSED would invert.
+            .highlight_style(
+                Style::new()
+                    .fg(Color::White)
+                    .bg(Color::DarkGray)
+                    .add_modifier(Modifier::BOLD),
+            )
             .highlight_style_inactive(Style::new().add_modifier(Modifier::BOLD))
             .indent_size(2)
             .scroll_step(10)
@@ -330,6 +337,40 @@ mod tests {
         );
         let plain = Label::new("x.rs".into());
         assert_eq!(plain.render_parts_iter().count(), 1);
+    }
+
+    #[test]
+    fn selected_row_keeps_a_yellow_marker() {
+        use tuirealm::terminal::{TerminalAdapter, TestTerminalAdapter};
+        let repo = crate::testutil::fixture_repo();
+        let mut tree = FileTree::new(build_tree("repo", &crate::search::files::walk(repo.path())));
+        let marked = PropPayload::Vec(vec![PropValue::Str("src/matcher.rs".into())]);
+        tree.attr(Attribute::Custom(MARKED), AttrValue::Payload(marked));
+        tree.attr(Attribute::Focus, AttrValue::Flag(true));
+        tree.attr(
+            Attribute::Custom(TREE_INITIAL_NODE),
+            AttrValue::String("src/".into()),
+        );
+        tree.perform(Cmd::Custom(TREE_CMD_OPEN));
+        tree.attr(
+            Attribute::Custom(TREE_INITIAL_NODE),
+            AttrValue::String("src/matcher.rs".into()),
+        );
+        let mut term = TestTerminalAdapter::new(Size::new(30, 8)).unwrap();
+        let done = term.draw(|f| tree.view(f, f.area())).unwrap();
+        // Row 4: "      matcher.rs ●", the selected row.
+        let row: String = (0..30)
+            .map(|x| done.buffer[(x, 4)].symbol().to_string())
+            .collect();
+        let x = row.chars().position(|c| c == '●').unwrap() as u16;
+        let cell = &done.buffer[(x, 4)];
+        assert_eq!((cell.fg, cell.bg), (Color::Yellow, Color::DarkGray));
+        assert!(!cell.modifier.contains(Modifier::REVERSED));
+        assert_eq!(
+            done.buffer[(x - 3, 4)].bg,
+            Color::DarkGray,
+            "the name is highlighted too"
+        );
     }
 
     fn click(tree: &mut FileTree, col: u16, row: u16) -> Option<Msg> {

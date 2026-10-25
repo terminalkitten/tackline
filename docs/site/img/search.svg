@@ -417,10 +417,10 @@
 <rect x="919.2" y="84" width="8.8" height="18" fill="#3a341c"/>
 <text x="927.6" y="98" fill="#65737e">│</text>
 <text x="12" y="116" fill="#c0c5ce">│</text>
-<rect x="20.4" y="102" width="8.8" height="18" fill="#c0c5ce"/>
-<rect x="28.8" y="102" width="8.8" height="18" fill="#c0c5ce"/>
-<rect x="37.2" y="102" width="8.8" height="18" fill="#c0c5ce"/>
-<rect x="45.6" y="102" width="8.8" height="18" fill="#c0c5ce"/>
+<rect x="20.4" y="102" width="8.8" height="18" fill="#65737e"/>
+<rect x="28.8" y="102" width="8.8" height="18" fill="#65737e"/>
+<rect x="37.2" y="102" width="8.8" height="18" fill="#65737e"/>
+<rect x="45.6" y="102" width="8.8" height="18" fill="#65737e"/>
 <text x="54" y="116" fill="#96b5b4">│</text>
 <text x="62.400000000000006" y="116" fill="#65737e">s</text>
 <text x="70.80000000000001" y="116" fill="#65737e">r</text>
