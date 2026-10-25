@@ -92,13 +92,19 @@ impl AppComponent<Msg, NoUserEvent> for NoteHeader {
 #[derive(Component)]
 pub struct NoteText {
     component: TextArea<'static>,
+    /// The char just typed; `\` then Enter makes a newline.
+    last_typed: Option<char>,
 }
 
 impl NoteText {
     /// `shift_enter`: the terminal reports Shift+Enter (kitty protocol);
     /// otherwise the title points at Ctrl+J.
     pub fn new(text: &str, shift_enter: bool) -> Self {
-        let newline = if shift_enter { "Shift+Enter" } else { "Ctrl+J" };
+        let newline = if shift_enter {
+            "Shift+Enter"
+        } else {
+            "\\ Enter"
+        };
         let title = format!(" Prompt · Enter saves · {newline} newline · Esc cancels ");
         let lines = if text.is_empty() {
             vec![String::new()]
@@ -115,7 +121,10 @@ impl NoteText {
         // Start at the end of any existing text.
         component.perform(Cmd::Custom(tui_realm_textarea::TEXTAREA_CMD_MOVE_BOTTOM));
         component.perform(Cmd::GoTo(Position::End));
-        Self { component }
+        Self {
+            component,
+            last_typed: None,
+        }
     }
 
     fn text(&self) -> String {
@@ -136,13 +145,18 @@ impl NoteText {
 impl AppComponent<Msg, NoUserEvent> for NoteText {
     fn on(&mut self, ev: &Event<NoUserEvent>) -> Option<Msg> {
         let k = ev.as_keyboard()?;
-        // Shift+Enter needs a terminal that reports it (kitty protocol);
-        // Alt+Enter and Ctrl+J work everywhere.
+        // Shift+Enter needs a terminal that reports it (kitty protocol).
+        // `\` + Enter (as in Claude Code), Alt+Enter and Ctrl+J work everywhere.
         let newline = k.code == Key::Enter
             && k.modifiers
                 .intersects(KeyModifiers::SHIFT | KeyModifiers::ALT);
+        let after_backslash = std::mem::take(&mut self.last_typed) == Some('\\');
         let cmd = match key(ev)? {
             _ if newline => Cmd::Custom(TEXTAREA_CMD_NEWLINE),
+            (Key::Enter, false) if after_backslash => {
+                self.component.perform(Cmd::Delete);
+                Cmd::Custom(TEXTAREA_CMD_NEWLINE)
+            }
             (Key::Esc, _) => return Some(Msg::ClosePopup),
             (Key::Enter, false) | (Key::Char('s'), true) => {
                 return Some(Msg::SaveNote(self.text()));
@@ -150,7 +164,10 @@ impl AppComponent<Msg, NoUserEvent> for NoteText {
             (Key::Char('j'), true) => Cmd::Custom(TEXTAREA_CMD_NEWLINE),
             (Key::Tab, _) => return Some(Msg::CycleSession(1)),
             (Key::BackTab, _) => return Some(Msg::CycleSession(-1)),
-            (Key::Char(c), false) => Cmd::Type(c),
+            (Key::Char(c), false) => {
+                self.last_typed = Some(c);
+                Cmd::Type(c)
+            }
             (Key::Backspace, _) => Cmd::Delete,
             (Key::Delete, _) => Cmd::Cancel,
             (Key::Left, _) => Cmd::Move(Direction::Left),
@@ -229,6 +246,26 @@ mod tests {
         assert_eq!(
             press(&mut text, Key::Enter, KeyModifiers::NONE),
             Some(Msg::SaveNote("make it async\nkeep the API\n\n!".into()))
+        );
+    }
+
+    #[test]
+    fn backslash_enter_is_a_newline() {
+        let mut text = NoteText::new("", false);
+        for c in "one\\".chars() {
+            press(&mut text, Key::Char(c), KeyModifiers::NONE);
+        }
+        assert_eq!(
+            press(&mut text, Key::Enter, KeyModifiers::NONE),
+            Some(Msg::Redraw)
+        );
+        for c in "two \\ x".chars() {
+            press(&mut text, Key::Char(c), KeyModifiers::NONE);
+        }
+        // A `\` that isn't the last char typed stays and Enter saves.
+        assert_eq!(
+            press(&mut text, Key::Enter, KeyModifiers::NONE),
+            Some(Msg::SaveNote("one\ntwo \\ x".into()))
         );
     }
 
