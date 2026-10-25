@@ -1,4 +1,10 @@
-# tackline
+<p align="center">
+  <a href="https://terminalkitten.github.io/tackline/">
+    <img src="https://raw.githubusercontent.com/terminalkitten/tackline/main/docs/assets/logo.svg" alt="tackline logo" width="72" height="72">
+  </a>
+</p>
+
+<h1 align="center">tackline</h1>
 
 **Point at code, write what your coding agent should do there, and hand it one
 prompt.** Works with Claude Code, Codex, opencode, aider, Cursor, or anything
