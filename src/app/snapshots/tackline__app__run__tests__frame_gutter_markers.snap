@@ -1,0 +1,18 @@
+---
+source: src/app/run.rs
+expression: "frame(&mut m, None)"
+---
+╭ Files ───────────────────────╮╭ src/matcher.rs ──────────────────────────────╮
+│  repo/ ▼                     ││1   pub fn matches(query: &str, items: &[Strin│
+│    scripts/ ▶                ││2       let mut out = Vec::new();             │
+│    src/ ▶                    ││3 ●     for item in items {                   │
+│    web/ ▶                    ││4 ●         if item.contains(query) {         │
+│                              ││5 ●             out.push(item.clone());       │
+│                              ││6           }                                 │
+│                              ││7       }                                     │
+│                              ││8       out                                   │
+│                              ││9   }                                         │
+│                              ││                                              │
+│                              ││                                              │
+╰──────────────────────────────╯╰──────────────────────────────────────────────╯
+ FILES  Perf (1 note)  src/matcher.rs 5:1  │ ? help  q quit

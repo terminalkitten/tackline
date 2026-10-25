@@ -111,6 +111,10 @@ impl AppComponent<Msg, NoUserEvent> for SessionView {
             (Key::Up | Key::Char('k'), false) => Some(Msg::NoteUp),
             (Key::Enter, false) => Some(Msg::JumpToNote),
             (Key::Char('y'), false) => Some(Msg::CopyPrompt),
+            (Key::Char('e'), false) => Some(Msg::EditNote),
+            (Key::Char('d'), false) => Some(Msg::AskDeleteNote),
+            (Key::Char('J'), false) => Some(Msg::MoveNote(1)),
+            (Key::Char('K'), false) => Some(Msg::MoveNote(-1)),
             _ => global_key(ev),
         }
     }

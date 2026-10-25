@@ -4,6 +4,7 @@ pub mod code_view;
 pub mod file_tree;
 pub mod help_popup;
 pub mod name_input;
+pub mod note_popup;
 pub mod session_picker;
 pub mod session_view;
 pub mod status_bar;

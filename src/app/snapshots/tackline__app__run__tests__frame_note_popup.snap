@@ -1,0 +1,18 @@
+---
+source: src/app/run.rs
+expression: "frame(&mut m, Some(Popup::Note))"
+---
+╭ Add note ────────────────────────────────────────────────────────────────────╮
+│src/matcher.rs:L3-5                                                           │
+││     for item in items {                                                     │
+││         if item.contains(query) {                                           │
+││             out.push(item.clone());                                         │
+│                                                                              │
+│Session: Perf                                                                 │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭ Prompt · Enter saves · Ctrl+J newline · Esc cancels ─────────────────────────╮
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯

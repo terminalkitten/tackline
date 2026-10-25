@@ -5,10 +5,14 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use tui_realm_treeview::{Node, TREE_CMD_CLOSE, TREE_CMD_OPEN, Tree, TreeView};
-use tuirealm::command::{Cmd, Direction};
+use tuirealm::command::{Cmd, CmdResult, Direction};
 use tuirealm::component::{AppComponent, Component};
 use tuirealm::event::{Event, Key, NoUserEvent};
-use tuirealm::props::{HorizontalAlignment, Style, Title};
+use tuirealm::props::{
+    AttrValue, Attribute, HorizontalAlignment, PropPayload, PropValue, QueryResult, Style, Title,
+};
+use tuirealm::ratatui::Frame;
+use tuirealm::ratatui::layout::Rect;
 use tuirealm::ratatui::style::Modifier;
 use tuirealm::state::{State, StateValue};
 
@@ -53,9 +57,65 @@ pub fn build_tree(root_name: &str, entries: &[(PathBuf, bool)]) -> Tree<String> 
     Tree::new(root)
 }
 
-#[derive(Component)]
+/// Attribute with the ids of files to mark (`PropPayload::Vec` of `Str`).
+pub const MARKED: &str = "marked";
+const MARKER: &str = " ●";
+
 pub struct FileTree {
     component: TreeView<String>,
+    marked: Vec<String>,
+}
+
+/// Everything goes to the tree view, except `MARKED`, which relabels files.
+impl Component for FileTree {
+    fn view(&mut self, frame: &mut Frame, area: Rect) {
+        self.component.view(frame, area);
+    }
+
+    fn query<'a>(&'a self, attr: Attribute) -> Option<QueryResult<'a>> {
+        self.component.query(attr)
+    }
+
+    fn attr(&mut self, attr: Attribute, value: AttrValue) {
+        if attr != Attribute::Custom(MARKED) {
+            return self.component.attr(attr, value);
+        }
+        let marked: Vec<String> = match value {
+            AttrValue::Payload(PropPayload::Vec(ids)) => ids
+                .into_iter()
+                .filter_map(|v| match v {
+                    PropValue::Str(id) => Some(id),
+                    _ => None,
+                })
+                .collect(),
+            _ => Vec::new(),
+        };
+        if marked == self.marked {
+            return;
+        }
+        let root = self.component.tree_mut().root_mut();
+        for id in &self.marked {
+            if let Some(node) = root.query_mut(id) {
+                let name = node.value().trim_end_matches(MARKER).to_string();
+                node.set_value(name);
+            }
+        }
+        for id in &marked {
+            if let Some(node) = root.query_mut(id) {
+                let name = format!("{}{MARKER}", node.value());
+                node.set_value(name);
+            }
+        }
+        self.marked = marked;
+    }
+
+    fn state(&self) -> State {
+        self.component.state()
+    }
+
+    fn perform(&mut self, cmd: Cmd) -> CmdResult {
+        self.component.perform(cmd)
+    }
 }
 
 impl FileTree {
@@ -71,7 +131,10 @@ impl FileTree {
             .with_tree(tree)
             .initial_node(ROOT);
         component.perform(Cmd::Custom(TREE_CMD_OPEN));
-        Self { component }
+        Self {
+            component,
+            marked: Vec::new(),
+        }
     }
 
     /// `Enter`: toggle a directory, open a file.
@@ -149,5 +212,15 @@ mod tests {
             render_to_string(&mut tree, Size::new(30, 8))
         );
         assert_eq!(press(&mut tree, Key::Char('q')), Some(Msg::Quit));
+
+        let mark = |ids: &[&str]| {
+            AttrValue::Payload(PropPayload::Vec(
+                ids.iter().map(|i| PropValue::Str(i.to_string())).collect(),
+            ))
+        };
+        tree.attr(Attribute::Custom(MARKED), mark(&["src/matcher.rs"]));
+        insta::assert_snapshot!("tree_marked", render_to_string(&mut tree, Size::new(30, 8)));
+        tree.attr(Attribute::Custom(MARKED), mark(&[]));
+        assert!(!render_to_string(&mut tree, Size::new(30, 8)).contains('●'));
     }
 }

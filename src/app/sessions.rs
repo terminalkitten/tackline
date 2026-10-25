@@ -30,7 +30,10 @@ impl Model {
         self.save_state();
         self.popup = None;
         self.toast(ToastKind::Info, format!("Created session \"{name}\""));
-        self.resolve_notes();
+        self.notes_changed();
+        if std::mem::take(&mut self.note_after_new_session) {
+            self.add_note();
+        }
     }
 
     pub(super) fn pick_session(&mut self, index: usize) {
@@ -41,6 +44,7 @@ impl Model {
         self.save_state();
         self.popup = None;
         self.note_cursor = 0;
+        self.refresh_marks();
         self.show_view(View::Session);
     }
 

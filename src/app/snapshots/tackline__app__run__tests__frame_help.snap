@@ -2,17 +2,17 @@
 source: src/app/run.rs
 expression: "frame(&mut m, None)"
 ---
-╭ Files ──────╭────────────────────── Keys ───────────────────────╮────────────╮
-│  repo/ ▼    │ 1 / 2 / 3       Files / Diff / Session view       │ems: &[Strin│
-│    scripts/ │ Ctrl+N          New session                       │            │
-│    src/ ▶   │ Ctrl+O          Pick the active session           │            │
-│    web/ ▶   │ Tab             Switch tree ↔ code                │) {         │
-│             │ j k ↑ ↓         Move down / up                    │e());       │
-│             │ h l ← →         Tree: close / open · Code: column │            │
-│             │ Enter           Open file / toggle directory      │            │
-│             │ gg / G          Top / bottom                      │            │
-│             │ Ctrl+D / Ctrl+U Half page down / up               │            │
-│             │ 0 / $           Line start / end                  │            │
-│             │ Session: j k    Select note                       │            │
-╰─────────────│ Session: Enter  Jump to the note                  │────────────╯
- FILES  no ses╰───────────────────────────────────────────────────╯
+╭ Files ─────╭─────────────────────── Keys ───────────────────────╮────────────╮
+│  repo/ ▼   │ 1 / 2 / 3       Files / Diff / Session view        │ems: &[Strin│
+│    scripts/│ Ctrl+N          New session                        │            │
+│    src/ ▶  │ Ctrl+O          Pick the active session            │            │
+│    web/ ▶  │ Tab             Switch tree ↔ code                 │) {         │
+│            │ j k ↑ ↓         Move down / up                     │e());       │
+│            │ h l ← →         Tree: close / open · Code: column  │            │
+│            │ Enter           Open file / toggle directory       │            │
+│            │ gg / G          Top / bottom                       │            │
+│            │ Ctrl+D / Ctrl+U Half page down / up                │            │
+│            │ 0 / $           Line start / end                   │            │
+│            │ v / V           Select chars / lines (again: stop) │            │
+╰────────────│ Shift+arrows    Select lines (↑↓) or chars (←→)    │────────────╯
+ FILES  no se╰────────────────────────────────────────────────────╯

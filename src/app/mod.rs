@@ -1,5 +1,6 @@
 //! Model, Msg and update: all app state and every change to it.
 
+mod notes;
 mod run;
 mod sessions;
 
@@ -12,9 +13,10 @@ use tuirealm::ratatui::layout::{Constraint, Layout, Rect};
 use tuirealm::ratatui::text::Line;
 use two_face::re_exports::syntect::highlighting::Theme;
 
+pub use notes::{Draft, Selection, SelectionKind};
 pub use run::run;
 
-use crate::components::code_view::{self, CodeProps};
+use crate::components::code_view::{self, CodeProps, Mark};
 use crate::components::session_view::NoteRow;
 use crate::highlight::{Highlighted, TAB};
 use crate::model::{Session, State, View};
@@ -39,6 +41,9 @@ pub enum Id {
     SessionPicker,
     SessionView,
     Toast,
+    NoteHeader,
+    NoteText,
+    ConfirmDelete,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -46,6 +51,8 @@ pub enum Popup {
     Help,
     NewSession,
     SessionPicker,
+    Note,
+    ConfirmDelete,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -107,6 +114,21 @@ pub enum Msg {
     DismissToast,
     /// Something outside `update` failed (e.g. the clipboard).
     Error(String),
+    /// `v` / `V`.
+    ToggleSelection(SelectionKind),
+    /// Shift+arrow.
+    ExtendSelection(SelectionKind, Motion),
+    ClearSelection,
+    /// `c`: note the selection (or the cursor line).
+    AddNote,
+    /// Note popup: change the target session.
+    CycleSession(isize),
+    SaveNote(String),
+    /// Session view: `e`, `d` (asks), confirmed delete, `J` / `K`.
+    EditNote,
+    AskDeleteNote,
+    DeleteNote,
+    MoveNote(isize),
     /// Terminal size (width, height).
     Resize(u16, u16),
     /// A component changed only its own widget state.
@@ -160,6 +182,12 @@ pub struct Model {
     pub notes: Vec<NoteRow>,
     /// Selected note in the Session view.
     pub note_cursor: usize,
+    pub selection: Option<Selection>,
+    pub draft: Option<Draft>,
+    /// Gutter marks for the open file.
+    pub marks: Vec<Mark>,
+    /// `c` with no sessions: open the note popup once one is named.
+    note_after_new_session: bool,
     store: Box<dyn Store>,
     /// Per-file highlight caches, dropped when the file's mtime changes.
     highlights: HashMap<PathBuf, (Option<SystemTime>, Highlighted)>,
@@ -199,6 +227,10 @@ impl Model {
             clipboard: None,
             notes: Vec::new(),
             note_cursor: 0,
+            selection: None,
+            draft: None,
+            marks: Vec::new(),
+            note_after_new_session: false,
             root,
             view: View::Files,
             focus: Focus::Tree,
@@ -231,6 +263,8 @@ impl Model {
             (Some(Popup::Help), ..) => Id::Help,
             (Some(Popup::NewSession), ..) => Id::NameInput,
             (Some(Popup::SessionPicker), ..) => Id::SessionPicker,
+            (Some(Popup::Note), ..) => Id::NoteText,
+            (Some(Popup::ConfirmDelete), ..) => Id::ConfirmDelete,
             (None, View::Files, Focus::Tree) => Id::FileTree,
             (None, View::Files, Focus::Code) => Id::CodeView,
             (None, View::Session, _) => Id::SessionView,
@@ -272,7 +306,11 @@ impl Model {
             }
             Msg::ShowView(view) => self.show_view(view),
             Msg::OpenPopup(popup) => self.popup = Some(popup),
-            Msg::ClosePopup => self.popup = None,
+            Msg::ClosePopup => {
+                self.popup = None;
+                self.draft = None;
+                self.note_after_new_session = false;
+            }
             Msg::NewSession(name) => self.new_session(&name),
             Msg::PickSession(i) => self.pick_session(i),
             Msg::NoteUp => self.note_cursor = self.note_cursor.saturating_sub(1),
@@ -283,6 +321,16 @@ impl Model {
             Msg::CopyPrompt => self.copy_prompt(),
             Msg::DismissToast => self.toast = None,
             Msg::Error(text) => self.toast(ToastKind::Error, text),
+            Msg::ToggleSelection(kind) => self.toggle_selection(kind),
+            Msg::ExtendSelection(kind, motion) => self.extend_selection(kind, motion),
+            Msg::ClearSelection => self.selection = None,
+            Msg::AddNote => self.add_note(),
+            Msg::CycleSession(step) => self.cycle_session(step),
+            Msg::SaveNote(text) => self.save_note(&text),
+            Msg::EditNote => self.edit_note(),
+            Msg::AskDeleteNote => self.ask_delete_note(),
+            Msg::DeleteNote => self.delete_note(),
+            Msg::MoveNote(step) => self.move_note(step),
             Msg::Resize(w, h) => {
                 self.size = (w, h);
                 self.scroll_to_cursor();
@@ -333,6 +381,8 @@ impl Model {
         self.top = 0;
         self.left = 0;
         self.focus = Focus::Code;
+        self.selection = None;
+        self.refresh_marks();
     }
 
     fn show_view(&mut self, view: View) {
@@ -443,6 +493,8 @@ impl Model {
                 .filter(|_| focused)
                 .map(|l| (l, display_col(&lines[l], self.cursor.col))),
             current_line: self.cursor.line,
+            marks: &self.marks,
+            selection: self.selection_view(),
             theme: &self.theme,
             focused,
         })

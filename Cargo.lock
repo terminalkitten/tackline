@@ -1709,6 +1709,7 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tui-realm-stdlib",
+ "tui-realm-textarea",
  "tui-realm-treeview",
  "tuirealm",
  "two-face",
@@ -1803,6 +1804,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "tui-realm-textarea"
+version = "4.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "63946eeed9cef6a1901932d88d076492f5a10c6a7eaf0a2c68acca034ab9991f"
+dependencies = [
+ "lazy-regex",
+ "tui-textarea-2",
+ "tuirealm",
+]
+
+[[package]]
 name = "tui-realm-treeview"
 version = "4.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1811,6 +1823,20 @@ dependencies = [
  "orange-trees",
  "tui-realm-stdlib",
  "tuirealm",
+ "unicode-width",
+]
+
+[[package]]
+name = "tui-textarea-2"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "74a31ca0965e3ff6a7ac5ecb02b20a88b4f68ebf138d8ae438e8510b27a1f00f"
+dependencies = [
+ "crossterm",
+ "portable-atomic",
+ "ratatui-core",
+ "ratatui-widgets",
+ "unicode-segmentation",
  "unicode-width",
 ]
 

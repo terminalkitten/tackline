@@ -1,0 +1,18 @@
+---
+source: src/app/run.rs
+expression: "frame(&mut m, None)"
+---
+╭ Session: Perf ───────────────────────────────────────────────────────────────╮
+│▌ 1. src/matcher.rs:L3-5                                                      │
+│▌    │     for item in items {                                                │
+│▌    │         if item.contains(query) {                                      │
+│▌    │             out.push(item.clone());                                    │
+│▌    use an iterator chain                                                    │
+│                   ╭ Delete note? ────────────────────────╮                   │
+│                   │ y / Enter: delete    n / Esc: keep   │                   │
+│                   ╰──────────────────────────────────────╯                   │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+ SESSION  Perf (1 note)  src/matcher.rs 5:1  │ ? help  q quit

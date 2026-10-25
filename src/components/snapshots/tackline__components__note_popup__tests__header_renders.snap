@@ -1,0 +1,14 @@
+---
+source: src/components/note_popup.rs
+expression: "render_to_string(&mut head, Size::new(50, 10))"
+---
+╭ Add note ──────────────────────────────────────╮
+│src/matcher.rs:L3-7                             │
+││ a                                             │
+││ b                                             │
+││ c                                             │
+││ d                                             │
+││ … 2 more lines                                │
+│                                                │
+│Session: ◀ Perf ▶  Tab / Shift+Tab              │
+╰────────────────────────────────────────────────╯

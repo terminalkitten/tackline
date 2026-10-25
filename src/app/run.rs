@@ -1,5 +1,6 @@
 //! Terminal loop: tuirealm events → `Msg` → `Model::update` → props → draw.
 
+use std::collections::BTreeSet;
 use std::path::Path;
 use std::time::Duration;
 
@@ -7,7 +8,7 @@ use anyhow::Result;
 use tuirealm::application::{Application, PollStrategy};
 use tuirealm::event::NoUserEvent;
 use tuirealm::listener::EventListenerCfg;
-use tuirealm::props::{AttrValue, Attribute, PropBound, PropPayload, Title};
+use tuirealm::props::{AttrValue, Attribute, PropBound, PropPayload, PropValue, Title};
 use tuirealm::ratatui::Frame;
 use tuirealm::ratatui::text::Text;
 use tuirealm::ratatui::widgets::Clear;
@@ -15,9 +16,10 @@ use tuirealm::terminal::{CrosstermTerminalAdapter, TerminalAdapter};
 
 use super::{Id, Model, Msg, Popup, layout};
 use crate::components::code_view::CodeView;
-use crate::components::file_tree::{FileTree, build_tree};
+use crate::components::file_tree::{FileTree, MARKED, build_tree};
 use crate::components::help_popup::{self, HelpPopup};
 use crate::components::name_input::NameInput;
+use crate::components::note_popup::{self, ConfirmDelete, NoteHeader, NoteText};
 use crate::components::session_picker::{self, SessionPicker};
 use crate::components::session_view::SessionView;
 use crate::components::status_bar::{self, StatusBar};
@@ -112,6 +114,13 @@ fn mount(root: &Path, listener: EventListenerCfg<NoUserEvent>) -> Result<App> {
         vec![],
     )?;
     app.mount(Id::Toast, Box::new(Toast::default()), vec![])?;
+    app.mount(Id::NoteHeader, Box::new(NoteHeader::default()), vec![])?;
+    app.mount(Id::NoteText, Box::new(NoteText::new("")), vec![])?;
+    app.mount(
+        Id::ConfirmDelete,
+        Box::new(ConfirmDelete::default()),
+        vec![],
+    )?;
     Ok(app)
 }
 
@@ -145,9 +154,31 @@ fn sync(model: &mut Model, app: &mut App, opened: Option<Popup>) -> Result<()> {
                 session_picker::selected(index.unwrap_or(0)),
             )?;
         }
+        Some(Popup::Note) => {
+            let text = model.draft.as_ref().map_or("", |d| d.text.as_str());
+            app.remount(Id::NoteText, Box::new(NoteText::new(text)), vec![])?;
+        }
         _ => {}
     }
+    if let Some(header) = model.note_header() {
+        app.attr(&Id::NoteHeader, Attribute::Value, any(header))?;
+    }
     app.attr(&Id::CodeView, Attribute::Value, any(model.code_props()))?;
+    let marked: BTreeSet<String> = model
+        .active_session()
+        .map(|s| {
+            s.notes
+                .iter()
+                .map(|n| n.file.display().to_string())
+                .collect()
+        })
+        .unwrap_or_default();
+    let marked = marked.into_iter().map(PropValue::Str).collect();
+    app.attr(
+        &Id::FileTree,
+        Attribute::Custom(MARKED),
+        AttrValue::Payload(PropPayload::Vec(marked)),
+    )?;
     app.attr(
         &Id::SessionView,
         Attribute::Value,
@@ -198,21 +229,31 @@ fn draw(app: &mut App, model: &Model, f: &mut Frame) {
         View::Diff => app.view(&Id::Placeholder, f, areas.main),
     }
     app.view(&Id::StatusBar, f, areas.status);
-    let popup = model.popup.map(|p| match p {
-        Popup::Help => (Id::Help, help_popup::area(screen)),
-        Popup::NewSession => (Id::NameInput, centered(screen, 44.min(screen.width), 3)),
-        Popup::SessionPicker => {
+    let popup = match model.popup {
+        Some(Popup::Help) => Some((Id::Help, help_popup::area(screen))),
+        Some(Popup::NewSession) => Some((Id::NameInput, centered(screen, 44.min(screen.width), 3))),
+        Some(Popup::SessionPicker) => {
             let height =
                 (model.sessions.len() as u16 + 2).clamp(3, screen.height.saturating_sub(4));
-            (
+            Some((
                 Id::SessionPicker,
                 centered(screen, 44.min(screen.width), height),
-            )
+            ))
         }
-    });
+        Some(Popup::ConfirmDelete) => {
+            Some((Id::ConfirmDelete, centered(screen, 40.min(screen.width), 3)))
+        }
+        Some(Popup::Note) | None => None,
+    };
     if let Some((id, area)) = popup {
         f.render_widget(Clear, area);
         app.view(&id, f, area);
+    }
+    if let (Some(Popup::Note), Some(header)) = (model.popup, model.note_header()) {
+        let (head, text) = note_popup::areas(screen, header.rows.len());
+        f.render_widget(Clear, head.union(text));
+        app.view(&Id::NoteHeader, f, head);
+        app.view(&Id::NoteText, f, text);
     }
     if let Some(t) = &model.toast {
         let area = toast::area(areas.main, &t.text);
@@ -283,5 +324,33 @@ mod tests {
 
         m.update(Msg::PickSession(0));
         insta::assert_snapshot!("frame_session_empty_with_toast", frame(&mut m, None));
+    }
+
+    #[test]
+    fn note_frames() {
+        let repo = crate::testutil::fixture_repo();
+        let mut m = model(repo.path());
+        m.update(Msg::NewSession("Perf".into()));
+        m.update(Msg::DismissToast);
+        m.update(Msg::OpenFile("src/matcher.rs".into()));
+        for msg in [
+            Msg::Move(Motion::Down),
+            Msg::Move(Motion::Down),
+            Msg::ToggleSelection(crate::app::SelectionKind::Line),
+            Msg::Move(Motion::Down),
+            Msg::Move(Motion::Down),
+            Msg::AddNote,
+        ] {
+            m.update(msg);
+        }
+        insta::assert_snapshot!("frame_note_popup", frame(&mut m, Some(Popup::Note)));
+
+        m.update(Msg::SaveNote("use an iterator chain".into()));
+        m.update(Msg::DismissToast);
+        insta::assert_snapshot!("frame_gutter_markers", frame(&mut m, None));
+
+        m.update(Msg::ShowView(View::Session));
+        m.update(Msg::AskDeleteNote);
+        insta::assert_snapshot!("frame_confirm_delete", frame(&mut m, None));
     }
 }

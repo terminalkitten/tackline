@@ -3,7 +3,7 @@
 
 use tuirealm::command::{Cmd, CmdResult};
 use tuirealm::component::{AppComponent, Component};
-use tuirealm::event::{Event, Key, NoUserEvent};
+use tuirealm::event::{Event, Key, KeyModifiers, NoUserEvent};
 use tuirealm::props::{AttrValue, Attribute, PropPayload, Props, QueryResult};
 use tuirealm::ratatui::Frame;
 use tuirealm::ratatui::layout::Rect;
@@ -14,7 +14,7 @@ use tuirealm::state::State;
 use two_face::re_exports::syntect::highlighting::Theme;
 
 use super::{global_key, key};
-use crate::app::{Motion, Msg};
+use crate::app::{Motion, Msg, SelectionKind};
 use crate::highlight::color;
 
 /// What the pane shows, as set by the model.
@@ -60,8 +60,46 @@ pub struct Input<'a> {
     /// Cursor as (line, display column), when it should be drawn.
     pub cursor: Option<(usize, usize)>,
     pub current_line: usize,
+    /// Lines covered by notes in the active session.
+    pub marks: &'a [Mark],
+    pub selection: Option<Selection>,
     pub theme: &'a Theme,
     pub focused: bool,
+}
+
+/// Note lines `start..=end` (0-based) get `●`, or `⚠` when the note is stale.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Mark {
+    pub start: usize,
+    pub end: usize,
+    pub stale: bool,
+}
+
+/// From `start` to `end` inclusive, as (line, display column).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Selection {
+    pub start: (usize, usize),
+    pub end: (usize, usize),
+    pub linewise: bool,
+}
+
+impl Selection {
+    /// Selected display columns on line `n`, if any.
+    fn cols(&self, n: usize) -> Option<(usize, usize)> {
+        if n < self.start.0 || n > self.end.0 {
+            return None;
+        }
+        if self.linewise {
+            return Some((0, usize::MAX));
+        }
+        let from = if n == self.start.0 { self.start.1 } else { 0 };
+        let to = if n == self.end.0 {
+            self.end.1
+        } else {
+            usize::MAX
+        };
+        Some((from, to))
+    }
 }
 
 pub fn build(input: Input) -> CodeProps {
@@ -69,6 +107,7 @@ pub fn build(input: Input) -> CodeProps {
     let settings = &input.theme.settings;
     let gutter = Style::new().fg(settings.gutter_foreground.map_or(Color::DarkGray, color));
     let current = Style::new().bg(settings.line_highlight.map_or(Color::Indexed(236), color));
+    let selected = settings.selection.map_or(Color::Indexed(24), color);
 
     let rows = input
         .highlighted
@@ -77,13 +116,37 @@ pub fn build(input: Input) -> CodeProps {
         .map(|(i, line)| {
             let n = input.first_line + i;
             let cursor = input.cursor.filter(|(l, _)| *l == n).map(|(_, x)| x);
-            let mut spans = vec![Span::styled(format!("{:>digits$}   ", n + 1), gutter)];
-            spans.extend(visible(line, input.left, input.width, cursor));
+            let covering = input
+                .marks
+                .iter()
+                .filter(|m| (m.start..=m.end).contains(&n));
+            let marker = match covering.map(|m| m.stale).max() {
+                Some(true) => Span::styled("⚠", Style::new().fg(Color::Yellow)),
+                Some(false) => Span::styled("●", Style::new().fg(Color::Cyan)),
+                None => Span::raw(" "),
+            };
+            let sel = input.selection.and_then(|s| s.cols(n));
+            let mut spans = vec![
+                Span::styled(format!("{:>digits$} ", n + 1), gutter),
+                marker,
+                Span::raw(" "),
+            ];
+            spans.extend(visible(
+                line,
+                input.left,
+                input.width,
+                cursor,
+                sel,
+                selected,
+            ));
             let row = Line::from(spans);
-            if n == input.current_line {
-                row.style(current)
-            } else {
-                row
+            match (
+                input.selection.is_some_and(|s| s.linewise) && sel.is_some(),
+                n == input.current_line,
+            ) {
+                (true, _) => row.style(Style::new().bg(selected)),
+                (false, true) => row.style(current),
+                (false, false) => row,
             }
         })
         .collect();
@@ -95,18 +158,28 @@ pub fn build(input: Input) -> CodeProps {
     }
 }
 
-/// Columns `left..left + width` of `line`, with the cursor cell reversed.
+/// Columns `left..left + width` of `line`, with the cursor cell reversed and
+/// the `sel` columns (inclusive) on the `selected` background.
 fn visible(
     line: &Line<'static>,
     left: usize,
     width: usize,
     cursor: Option<usize>,
+    sel: Option<(usize, usize)>,
+    selected: Color,
 ) -> Vec<Span<'static>> {
     let mut cells: Vec<(char, Style)> = line
         .spans
         .iter()
         .flat_map(|s| s.content.chars().map(move |c| (c, s.style)))
         .collect();
+    if let Some((from, to)) = sel {
+        for (x, cell) in cells.iter_mut().enumerate() {
+            if (from..=to).contains(&x) {
+                cell.1 = cell.1.bg(selected);
+            }
+        }
+    }
     if let Some(x) = cursor {
         if x >= cells.len() {
             cells.resize(x + 1, (' ', Style::new()));
@@ -184,6 +257,18 @@ pub struct CodeView {
 
 impl AppComponent<Msg, NoUserEvent> for CodeView {
     fn on(&mut self, ev: &Event<NoUserEvent>) -> Option<Msg> {
+        // Shift+arrows select: up/down by line, left/right by char.
+        let k = ev.as_keyboard()?;
+        if k.modifiers.contains(KeyModifiers::SHIFT) {
+            let extend = |kind, motion| Some(Msg::ExtendSelection(kind, motion));
+            match k.code {
+                Key::Up => return extend(SelectionKind::Line, Motion::Up),
+                Key::Down => return extend(SelectionKind::Line, Motion::Down),
+                Key::Left => return extend(SelectionKind::Char, Motion::Left),
+                Key::Right => return extend(SelectionKind::Char, Motion::Right),
+                _ => {}
+            }
+        }
         let motion = match key(ev)? {
             (Key::Down | Key::Char('j'), false) => Motion::Down,
             (Key::Up | Key::Char('k'), false) => Motion::Up,
@@ -196,6 +281,10 @@ impl AppComponent<Msg, NoUserEvent> for CodeView {
             (Key::Char('0') | Key::Home, false) => Motion::LineStart,
             (Key::Char('$') | Key::End, false) => Motion::LineEnd,
             (Key::Char('g'), false) => return Some(Msg::PressG),
+            (Key::Char('v'), false) => return Some(Msg::ToggleSelection(SelectionKind::Char)),
+            (Key::Char('V'), false) => return Some(Msg::ToggleSelection(SelectionKind::Line)),
+            (Key::Esc, _) => return Some(Msg::ClearSelection),
+            (Key::Char('c'), false) => return Some(Msg::AddNote),
             (Key::Tab | Key::BackTab, _) => return Some(Msg::ToggleFocus),
             _ => return global_key(ev),
         };
@@ -219,13 +308,16 @@ mod tests {
                 .map(|s| s.content.to_string())
                 .collect::<String>()
         };
-        assert_eq!(text(visible(&line, 2, 10, None)), "t x");
-        let spans = visible(&line, 0, 10, Some(4));
+        assert_eq!(text(visible(&line, 2, 10, None, None, Color::Blue)), "t x");
+        let spans = visible(&line, 0, 10, Some(4), None, Color::Blue);
         assert_eq!(
             spans.last().unwrap().style,
             Style::new().fg(Color::Red).add_modifier(Modifier::REVERSED)
         );
         // Cursor past the end (empty line) still shows a cell.
-        assert_eq!(text(visible(&Line::default(), 0, 10, Some(0))), " ");
+        assert_eq!(
+            text(visible(&Line::default(), 0, 10, Some(0), None, Color::Blue)),
+            " "
+        );
     }
 }
