@@ -10,7 +10,7 @@
   --ansi-5: #c678dd; --ansi-6: #56b6c2; --ansi-7: #abb2bf; --ansi-8: #5c6370; --ansi-9: #e06c75;
   --ansi-10: #98c379; --ansi-11: #e5c07b; --ansi-12: #61afef; --ansi-13: #c678dd; --ansi-14: #56b6c2;
   --ansi-15: #ffffff;
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--mono);
   color-scheme: light dark;
 }
 @media (prefers-color-scheme: dark) {
@@ -43,7 +43,7 @@ textarea:focus, input:focus, select:focus { outline: 2px solid color-mix(in srgb
 .search input { width: 100%; padding: .22rem .5rem; }
 .session-pick { margin-left: auto; }
 .session-pick label { display: flex; gap: .4rem; align-items: center; color: var(--muted); }
-.session-pick select { padding: .2rem .4rem; max-width: 14rem; }
+.session-pick select { padding: .2rem .4rem; max-width: 18rem; }
 .new-session { position: relative; }
 .new-session summary { cursor: pointer; color: var(--accent); list-style: none; white-space: nowrap; }
 .new-session summary::-webkit-details-marker { display: none; }
@@ -80,7 +80,7 @@ main.editor { padding: 0; overflow: hidden; display: flex; flex-direction: colum
 .tab-path { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tab-badge { font-size: .7rem; padding: 0 .35rem; border-radius: 4px; background: color-mix(in srgb, var(--code-fg) 14%, transparent); }
 .tab-notes { color: var(--tack-mark); white-space: nowrap; }
-.editor-hint { margin-left: auto; align-self: center; padding-right: .9rem; color: color-mix(in srgb, var(--code-fg) 45%, transparent); white-space: nowrap; font-family: system-ui, sans-serif; font-size: .75rem; }
+.editor-hint { margin-left: auto; align-self: center; padding-right: .9rem; color: color-mix(in srgb, var(--code-fg) 45%, transparent); white-space: nowrap; font-size: .75rem; }
 .code-scroll { flex: 1; min-height: 0; overflow: auto; background: var(--code-bg); container-type: inline-size; padding-bottom: 40vh; }
 .code-scroll .placeholder { padding: 1rem 1.2rem; color: color-mix(in srgb, var(--code-fg) 60%, transparent); }
 
@@ -116,7 +116,7 @@ tr.note-row.stale .note-card { border-left-color: var(--stale); }
 .note-dot { color: var(--tack-mark); flex: none; }
 tr.note-row.stale .note-dot { color: var(--stale); }
 .note-text { font-size: .95em; flex: 1; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
-.note-edit-link { flex: none; font-family: system-ui, sans-serif; font-size: .75rem; color: color-mix(in srgb, var(--code-fg) 55%, transparent); opacity: 0; }
+.note-edit-link { flex: none; font-size: .75rem; color: color-mix(in srgb, var(--code-fg) 55%, transparent); opacity: 0; }
 .note-card:hover .note-edit-link, .note-edit-link:focus { opacity: 1; }
 
 /* Status bar: the note on the line under the mouse, like the terminal app's border. */
