@@ -116,7 +116,7 @@ impl Highlighted {
 // ponytail: hand-rolled because syntect-tui 3.0 targets ratatui 0.29, not
 // tuirealm's 0.30; swap it in when it catches up.
 fn to_style(s: two_face::re_exports::syntect::highlighting::Style) -> Style {
-    let mut style = Style::default().fg(Color::Rgb(s.foreground.r, s.foreground.g, s.foreground.b));
+    let mut style = Style::default().fg(color(s.foreground));
     for (font, modifier) in [
         (FontStyle::BOLD, Modifier::BOLD),
         (FontStyle::ITALIC, Modifier::ITALIC),
@@ -129,9 +129,23 @@ fn to_style(s: two_face::re_exports::syntect::highlighting::Style) -> Style {
     style
 }
 
-/// A theme color as a ratatui color.
+/// Whether the theme has a light background.
+pub fn is_light(theme: &Theme) -> bool {
+    theme
+        .settings
+        .background
+        .is_some_and(|c| c.a >= 2 && u32::from(c.r) + u32::from(c.g) + u32::from(c.b) > 3 * 128)
+}
+
+/// A theme color as a ratatui color. The `ansi`, `base16` and `base16-256`
+/// themes use the terminal's palette: alpha 0 means color number `r`, alpha 1
+/// the terminal's default (the same encoding bat uses).
 pub fn color(c: two_face::re_exports::syntect::highlighting::Color) -> Color {
-    Color::Rgb(c.r, c.g, c.b)
+    match c.a {
+        0 => Color::Indexed(c.r),
+        1 => Color::Reset,
+        _ => Color::Rgb(c.r, c.g, c.b),
+    }
 }
 
 #[cfg(test)]
@@ -176,6 +190,22 @@ mod tests {
         assert_eq!(h.lines[1].to_string(), "    let s = \"x\";");
         h.ensure(&text, 100, &theme);
         assert_eq!(h.lines.len(), 4);
+    }
+
+    #[test]
+    fn palette_themes_use_terminal_colors() {
+        let theme = load_theme(Some("ansi")).unwrap();
+        let text = lines("fn main() { let x = 1; }");
+        let mut h = Highlighted::new(Path::new("x.rs"), &text[0], &theme);
+        h.ensure(&text, 1, &theme);
+        let colors: Vec<_> = h.lines[0].spans.iter().filter_map(|s| s.style.fg).collect();
+        assert!(
+            colors
+                .iter()
+                .all(|c| matches!(c, Color::Indexed(0..=15) | Color::Reset)),
+            "{colors:?}"
+        );
+        assert!(colors.iter().any(|c| matches!(c, Color::Indexed(_))));
     }
 
     #[test]

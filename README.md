@@ -115,7 +115,8 @@ Alacritty, iTerm2 with "Report keys using CSI u").
 tackline [--base <rev>] [--theme <name>]
     Open the app. --base diffs against merge-base(HEAD, <rev>), e.g.
     --base upstream/main for a fork. --theme picks a syntax theme
-    (default: base16-ocean.dark, or InspiredGitHub on light terminals).
+    (default: base16-ocean.dark, or InspiredGitHub on light terminals;
+    every theme is shown in the docs' Themes page).
 
 tackline export [<session>]
     Print the compiled prompt (default: the active session).
@@ -149,6 +150,7 @@ cargo fmt --check
 cargo clippy --all-targets -- -D warnings
 cargo test
 cargo test screenshots -- --ignored   # redraw docs/site/img/*.svg
+cargo test theme_gallery -- --ignored # redraw the theme gallery and its docs page
 ```
 
 ### Releasing

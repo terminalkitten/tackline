@@ -262,10 +262,7 @@ fn note_tint(theme: &Theme) -> Color {
 }
 
 fn is_light(theme: &Theme) -> bool {
-    theme
-        .settings
-        .background
-        .is_some_and(|c| u32::from(c.r) + u32::from(c.g) + u32::from(c.b) > 3 * 128)
+    crate::highlight::is_light(theme)
 }
 
 fn diff_colors(theme: &Theme) -> (Color, Color) {

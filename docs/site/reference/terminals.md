@@ -48,6 +48,8 @@ tackline --theme InspiredGitHub
 tackline --theme nope        # lists the available themes
 ```
 
+The [Themes](themes.md) page shows every theme side by side.
+
 Borders, the status bar and markers use your terminal's own color palette, so they follow its
 light or dark scheme. Diff backgrounds pick a light or dark pair to match the syntax theme.
 

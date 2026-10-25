@@ -523,29 +523,35 @@ mod screenshots {
     use tuirealm::terminal::TestTerminalAdapter;
 
     const SIZE: (u16, u16) = (110, 26);
-    const BG: &str = "#2b303b";
-    const FG: &str = "#c0c5ce";
+    /// The README and docs show the app with this theme (`--theme TwoDark`).
+    const THEME: &str = "TwoDark";
 
     fn hex(c: Color, fallback: &str) -> String {
+        // One Dark, the palette TwoDark is based on.
         let named = match c {
             Color::Rgb(r, g, b) => return format!("#{r:02x}{g:02x}{b:02x}"),
             Color::Reset => fallback,
-            Color::Black => "#1c1f26",
-            Color::Red | Color::LightRed => "#bf616a",
-            Color::Green | Color::LightGreen => "#a3be8c",
-            Color::Yellow | Color::LightYellow => "#ebcb8b",
-            Color::Blue | Color::LightBlue => "#8fa1b3",
-            Color::Magenta | Color::LightMagenta => "#b48ead",
-            Color::Cyan | Color::LightCyan => "#96b5b4",
-            Color::Gray | Color::White => "#dfe1e8",
-            Color::DarkGray => "#65737e",
+            Color::Black => "#21252b",
+            Color::Red | Color::LightRed => "#e06c75",
+            Color::Green | Color::LightGreen => "#98c379",
+            Color::Yellow | Color::LightYellow => "#e5c07b",
+            Color::Blue | Color::LightBlue => "#61afef",
+            Color::Magenta | Color::LightMagenta => "#c678dd",
+            Color::Cyan | Color::LightCyan => "#56b6c2",
+            Color::Gray | Color::White => "#dcdfe4",
+            Color::DarkGray => "#5c6370",
+            Color::Indexed(n @ 0..=15) => [
+                "#1e2127", "#e06c75", "#98c379", "#d19a66", "#61afef", "#c678dd", "#56b6c2",
+                "#abb2bf", "#5c6370", "#e06c75", "#98c379", "#e5c07b", "#61afef", "#c678dd",
+                "#56b6c2", "#ffffff",
+            ][n as usize],
             Color::Indexed(24) => "#2d4f67",
             Color::Indexed(_) => "#343d46",
         };
         named.to_string()
     }
 
-    fn svg(buf: &Buffer) -> String {
+    fn svg(buf: &Buffer, page: &str, ink: &str) -> String {
         let (cw, ch) = (8.4, 18.0);
         let area = buf.area;
         let (w, h) = (
@@ -553,18 +559,18 @@ mod screenshots {
             area.height as f64 * ch + 24.0,
         );
         let mut out = format!(
-            "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{w}\" height=\"{h}\" font-family=\"Menlo, Consolas, monospace\" font-size=\"14\">\n<rect width=\"100%\" height=\"100%\" rx=\"8\" fill=\"{BG}\"/>\n"
+            "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{w}\" height=\"{h}\" font-family=\"Menlo, Consolas, monospace\" font-size=\"14\">\n<rect width=\"100%\" height=\"100%\" rx=\"8\" fill=\"{page}\"/>\n"
         );
         for y in 0..area.height {
             for x in 0..area.width {
                 let cell = &buf[(x, y)];
-                let mut fg = hex(cell.fg, FG);
-                let mut bg = hex(cell.bg, BG);
+                let mut fg = hex(cell.fg, ink);
+                let mut bg = hex(cell.bg, page);
                 if cell.modifier.contains(Modifier::REVERSED) {
                     std::mem::swap(&mut fg, &mut bg);
                 }
                 let (px, py) = (12.0 + x as f64 * cw, 12.0 + y as f64 * ch);
-                if bg != BG {
+                if bg != page {
                     let _ = writeln!(
                         out,
                         "<rect x=\"{px}\" y=\"{py}\" width=\"{}\" height=\"{ch}\" fill=\"{bg}\"/>",
@@ -598,6 +604,12 @@ mod screenshots {
     const OPEN: &[&str] = &["src/", "scripts/"];
 
     fn shot(model: &mut Model, opened: Option<Popup>, name: &str) {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("docs/site/img/{name}.svg"));
+        shot_to(model, opened, &path, SIZE);
+    }
+
+    /// Draw the model's current screen into an SVG at `path`.
+    fn shot_to(model: &mut Model, opened: Option<Popup>, path: &Path, size: (u16, u16)) {
         let mut app = mount(&model.root, EventListenerCfg::default()).unwrap();
         let name_ = model
             .root
@@ -624,24 +636,30 @@ mod screenshots {
             );
         }
         app.remount(Id::FileTree, Box::new(tree), vec![]).unwrap();
-        let mut term = TestTerminalAdapter::new(Size::new(SIZE.0, SIZE.1)).unwrap();
+        let mut term = TestTerminalAdapter::new(Size::new(size.0, size.1)).unwrap();
         sync(model, &mut app, opened, true).unwrap();
         let done = term.draw(|f| draw(&mut app, model, f)).unwrap();
-        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("docs/site/img");
-        std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(dir.join(format!("{name}.svg")), svg(done.buffer)).unwrap();
+        // Palette themes (alpha < 2) leave the page to the terminal: use One Dark.
+        let theme_hex = |c: Option<two_face::re_exports::syntect::highlighting::Color>,
+                         default: &str| match c {
+            Some(c) if c.a >= 2 => format!("#{:02x}{:02x}{:02x}", c.r, c.g, c.b),
+            _ => default.to_string(),
+        };
+        let page = theme_hex(model.theme.settings.background, "#282c34");
+        let ink = theme_hex(model.theme.settings.foreground, "#abb2bf");
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, svg(done.buffer, &page, &ink)).unwrap();
     }
 
-    #[test]
-    #[ignore]
-    fn screenshots() {
+    /// The demo: a session with three notes on the fixture repo.
+    fn scene(theme: &str, size: (u16, u16)) -> (crate::testutil::Fixture, Model) {
         let repo = crate::testutil::fixture_repo();
-        let theme = load_theme(Some("base16-ocean.dark")).unwrap();
+        let theme = load_theme(Some(theme)).unwrap();
         let mut m = Model::new(repo.path().into(), theme, Box::new(MemStore::default()))
             .unwrap()
             .with_git(None);
         m.update(Msg::Confirm(false));
-        m.update(Msg::Resize(SIZE.0, SIZE.1));
+        m.update(Msg::Resize(size.0, size.1));
         m.update(Msg::NewSession("Search speedup".into()));
         m.update(Msg::ShowView(View::Files));
         m.update(Msg::OpenFile("src/matcher.rs".into()));
@@ -652,17 +670,11 @@ mod screenshots {
         };
         let down = Msg::Move(Motion::Down);
         let line = Msg::ToggleSelection(SelectionKind::Line);
+        let mut select = vec![down.clone(), down.clone(), line];
+        select.extend(std::iter::repeat_n(down.clone(), 4));
         note(
             &mut m,
-            &[
-                down.clone(),
-                down.clone(),
-                line.clone(),
-                down.clone(),
-                down.clone(),
-                down.clone(),
-                down.clone(),
-            ],
+            &select,
             "replace the loop with an iterator chain:\nitems.iter().filter(..).cloned().collect()",
         );
         m.update(Msg::Move(Motion::Bottom));
@@ -671,6 +683,85 @@ mod screenshots {
         m.update(Msg::OpenFile("scripts/score.py".into()));
         note(&mut m, std::slice::from_ref(&down), "use math.fsum here");
         m.update(Msg::DismissToast);
+        (repo, m)
+    }
+
+    /// `cargo test theme_gallery -- --ignored`: one screenshot per theme and
+    /// the Themes reference page that shows them.
+    #[test]
+    #[ignore]
+    fn theme_gallery() {
+        const GALLERY: (u16, u16) = (84, 16);
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("docs/site");
+        let mut dark = Vec::new();
+        let mut light = Vec::new();
+        for name in crate::highlight::theme_names() {
+            let (_repo, mut m) = scene(name, GALLERY);
+            m.update(Msg::OpenFile("src/matcher.rs".into()));
+            m.update(Msg::Move(Motion::Down));
+            m.update(Msg::Move(Motion::Down));
+            let slug: String = name
+                .to_lowercase()
+                .split(|c: char| !c.is_ascii_alphanumeric())
+                .filter(|s| !s.is_empty())
+                .collect::<Vec<_>>()
+                .join("-");
+            shot_to(
+                &mut m,
+                None,
+                &root.join(format!("img/themes/{slug}.svg")),
+                GALLERY,
+            );
+            let entry = (name.to_string(), slug);
+            if crate::highlight::is_light(&m.theme) {
+                &mut light
+            } else {
+                &mut dark
+            }
+            .push(entry);
+        }
+        // Two per row; click a screenshot for the full size.
+        let grid = |themes: &[(String, String)]| {
+            themes
+                .chunks(2)
+                .map(|pair| {
+                    let cell = |f: &dyn Fn(&str, &str) -> String| {
+                        let mut cells: Vec<String> = pair.iter().map(|(n, s)| f(n, s)).collect();
+                        cells.resize(2, String::new());
+                        format!("| {} |", cells.join(" | "))
+                    };
+                    let img = |n: &str, s: &str| {
+                        format!("[![{n}](../img/themes/{s}.svg)](../img/themes/{s}.svg)")
+                    };
+                    format!(
+                        "{}\n| --- | --- |\n{}\n{}\n\n",
+                        cell(&|n, _| format!("**{n}**")),
+                        cell(&img),
+                        cell(&|n, _| format!("`--theme \"{n}\"`")),
+                    )
+                })
+                .collect::<String>()
+        };
+        let (dark, light) = (grid(&dark), grid(&light));
+        let page = format!(
+            "---\ntitle: Themes\ndescription: Every syntax theme, with a screenshot of each.\n---\n\n\
+<!-- Generated by `cargo test theme_gallery -- --ignored`; edit the generator, not this file. -->\n\n\
+tackline highlights code with one of these themes. Without `--theme` it picks `base16-ocean.dark`, or\n\
+`InspiredGitHub` when the terminal reports a light background (see [Terminals](terminals.md#light-and-dark)).\n\n\
+```sh\ntackline --theme \"TwoDark\"\n```\n\n\
+`ansi`, `base16` and `base16-256` use your terminal's own colors, so they follow your terminal's\n\
+color scheme; the screenshots show them with a One Dark palette. Borders, the status bar and the\n\
+note markers always use your terminal's colors.\n\n\
+## Dark\n\n{dark}## Light\n\n{light}"
+        );
+        std::fs::write(root.join("reference/themes.md"), page).unwrap();
+    }
+
+    #[test]
+    #[ignore]
+    fn screenshots() {
+        let (_repo, mut m) = scene(THEME, SIZE);
+        let line = Msg::ToggleSelection(SelectionKind::Line);
 
         // Files view: a selection on its way to becoming a note.
         m.update(Msg::OpenFile("src/matcher.rs".into()));
