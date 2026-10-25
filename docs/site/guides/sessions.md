@@ -58,7 +58,7 @@ From the shell, without opening the app:
 ```sh
 tackline export                   # the active session
 tackline export "Search speedup"  # a session by name
-tackline export | claude -p       # straight into Claude Code
+tackline export | claude -p       # straight into Claude Code (other agents: see Workflow)
 tackline sessions                 # list them; * marks the active one
 ```
 

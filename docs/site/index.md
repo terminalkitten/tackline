@@ -1,15 +1,18 @@
 ---
 title: tackline
-description: Steer coding agents from your terminal. Put prompt instructions on lines of code, group them in sessions, and hand the agent one prompt.
+description: Point at code, write what your coding agent should do there, and hand it one prompt. Works with Claude Code, Codex, opencode, aider, Cursor and any agent that takes a prompt.
 ---
 
 > A tackline is the short length of line on a signal halyard that separates the flags. This tool
 > hangs signals on lines of code for an agent to read.
 
-tackline is a terminal app for steering coding agents such as Claude Code. You browse your files
-or your git diff, select the code you want changed, and write an instruction right on it. Those
-notes collect in a session, and the session compiles into one Markdown prompt that you paste into
-the agent or pipe into `claude -p`.
+tackline is a terminal app (with a [web version](guides/web.md)) for steering coding agents. You
+browse your files or your git diff, select the code you want changed, and write an instruction
+right on it. Those notes collect in a session, and the session compiles into one Markdown prompt.
+
+The prompt is plain Markdown, so it works with **Claude Code, Codex, opencode, aider, Cursor**, or
+anything else that takes a prompt: paste it, or hand it over from the shell
+([how](workflow.md#hand-it-to-your-agent)).
 
 ::linkbutton[Get started]{href="getting-started.md"}
 ::linkbutton[crates.io]{href="https://crates.io/crates/tackline" variant="secondary"}
@@ -43,8 +46,8 @@ prompt.
 :::steps
 1. **Select code** in the Files or Diff view: a line, a block or a few characters.
 2. **Press :kbd[c]** and write the instruction. It's saved into the active session.
-3. **Press :kbd[3]** to review the session, then **:kbd[y]** to copy the compiled prompt, or run
-   `tackline export | claude -p`.
+3. **Press :kbd[3]** to review the session, then **:kbd[y]** to copy the compiled prompt and paste
+   it into your agent, or hand it over from the shell.
 :::
 
 ::::cards
@@ -52,7 +55,7 @@ prompt.
 Install it and make your first note in two minutes.
 :::
 
-:::card[Workflow with Claude Code]{href="workflow.md"}
+:::card[Workflow with your agent]{href="workflow.md"}
 From notes to a prompt the agent can act on.
 :::
 

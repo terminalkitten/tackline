@@ -1,5 +1,5 @@
 ---
-title: Workflow with Claude Code
+title: Workflow with your agent
 description: From notes to a prompt an agent can act on, and back again after it edits your code.
 ---
 
@@ -20,17 +20,83 @@ review it, and hand it to the agent as one prompt.
    in the order the agent will read them. Reorder with :kbd[J] and :kbd[K], fix text with :kbd[e],
    drop notes with :kbd[d].
 
-4. **Send it.** Copy with :kbd[y] and paste into Claude Code, or skip the clipboard:
-
-   ```sh
-   tackline export | claude -p
-   ```
+4. **Send it.** Copy with :kbd[y] and paste it into your agent, or
+   [hand it over from the shell](#hand-it-to-your-agent).
 
 5. **Check the result.** After the agent edits, the [Diff view](guides/diff.md) shows what changed.
    Add notes on that diff for the next round, in the same session or a new one.
 :::
 
 ::image[The Session view: the prompt, note by note]{src="img/session.svg"}
+
+## Hand it to your agent
+
+The prompt is plain Markdown, so any agent that takes a prompt can use it. :kbd[y] copies it for
+pasting; from the shell, `tackline export` prints it:
+
+::::tabs{sync="agent"}
+:::tab[Claude Code]
+```sh
+tackline export | claude -p
+```
+:::
+:::tab[Codex]
+```sh
+codex exec "$(tackline export)"
+```
+:::
+:::tab[opencode]
+```sh
+opencode run "$(tackline export)"
+```
+:::
+:::tab[aider]
+```sh
+aider --message "$(tackline export)"
+```
+:::
+:::tab[Cursor]
+Paste it into the chat (:kbd[y] copies it), or with the Cursor CLI:
+
+```sh
+agent -p "$(tackline export)"
+```
+:::
+:::tab[Anything else]
+Paste it (:kbd[y] copies it), or save it to a file:
+
+```sh
+tackline export > prompt.md
+```
+:::
+::::
+
+`tackline export "Session name"` picks another session than the active one.
+
+### Claude Code extras
+
+A skill turns your notes into a slash command. Save this as `.claude/skills/tackline/SKILL.md` in
+your repository (or `~/.claude/skills/tackline/SKILL.md` for all of them) and run `/tackline` in
+Claude Code:
+
+```markdown title=".claude/skills/tackline/SKILL.md"
+---
+name: tackline
+description: Work through the notes in my active tackline session
+allowed-tools: Bash(tackline *)
+---
+
+## My notes on the code
+
+!`tackline export`
+
+## Your task
+
+Work through these notes in order. Each one names a file, the lines, the code
+as it is now, and what to do there.
+```
+
+The `` !`tackline export` `` line runs when you invoke the skill, so Claude gets your current notes.
 
 ## What the agent receives
 

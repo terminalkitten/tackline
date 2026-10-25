@@ -46,7 +46,7 @@ Select added or unchanged lines to add notes, the same way; removed lines can't 
 
 **Session** lists the notes of the active session in prompt order. Move them with ↑ and ↓, edit or
 delete them, and press **Copy prompt** to put the compiled prompt on your clipboard, ready to paste
-into Claude Code. **Show the prompt** previews it.
+into your agent. **Show the prompt** previews it.
 
 ::image[The Session tab]{src="../img/web-session.png"}
 

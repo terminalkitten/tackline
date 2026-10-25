@@ -5,17 +5,51 @@ description: Install tackline and turn your first note into a prompt.
 
 ## Install
 
-tackline is a Rust program. With a [Rust toolchain](https://rustup.rs) installed:
+One command, no Rust needed. Pick your platform:
+
+::::tabs{sync="os"}
+:::tab[macOS / Linux]
+```sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/terminalkitten/tackline/releases/latest/download/tackline-installer.sh | sh
+```
+
+The script downloads the right binary for your machine (Apple Silicon or Intel, x86_64 or ARM64
+Linux) into `~/.cargo/bin` and adds that to your `PATH`. Open a new terminal afterwards.
+:::
+:::tab[Homebrew]
+```sh
+brew install terminalkitten/tap/tackline
+```
+
+Update with `brew upgrade tackline`.
+:::
+:::tab[Windows]
+In PowerShell:
+
+```powershell
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/terminalkitten/tackline/releases/latest/download/tackline-installer.ps1 | iex"
+```
+
+Use it in Windows Terminal. Open a new terminal afterwards so the `PATH` change applies.
+:::
+:::tab[Cargo]
+With a [Rust toolchain](https://rustup.rs):
 
 ```sh
 cargo install tackline
 ```
 
 The crate is [tackline on crates.io](https://crates.io/crates/tackline).
+:::
+::::
 
-That puts two commands on your `PATH` that do the same thing: `tackline`, and `tack` for short.
-Every example in these docs works with either. From a checkout of the repository, use
-`cargo install --path .` instead.
+Prefer to download by hand? Every release has archives for macOS (Apple Silicon, Intel), Linux
+(x86_64, ARM64) and Windows (x86_64) with checksums, on the
+[releases page](https://github.com/terminalkitten/tackline/releases).
+
+Any of these puts two commands on your `PATH` that do the same thing: `tackline`, and `tack` for
+short. Every example in these docs works with either. To update, run the same command again (or
+`brew upgrade tackline`).
 
 :::note
 If another program already installed a `tack` command, cargo stops and says so. Remove that one,
@@ -53,7 +87,7 @@ tackline
    ::image[The note popup: the code being annotated, the target session and the instruction]{src="img/note.svg"}
 
 6. **Copy the prompt.** Press :kbd[3] for the Session view, check the notes, and press :kbd[y]. The
-   compiled prompt is on your clipboard, ready to paste into Claude Code.
+   compiled prompt is on your clipboard, ready to paste into your agent.
 :::
 
 Everything is saved as you go: quit with :kbd[q] whenever you like.
@@ -65,6 +99,7 @@ Diff view needs git.
 
 ## Next
 
-- [Workflow with Claude Code](workflow.md): getting good results from your notes.
+- [Workflow with your agent](workflow.md): handing the prompt to Claude Code, Codex, opencode, aider,
+  Cursor and others, and getting good results.
 - [Notes](guides/notes.md): everything you can do with a note.
 - [Keys](reference/keys.md): press :kbd[?] in the app for the same list.
