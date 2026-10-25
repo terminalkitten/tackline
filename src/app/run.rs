@@ -478,7 +478,8 @@ mod tests {
     }
 }
 
-/// `cargo test screenshots -- --ignored` redraws the README screenshots.
+/// `cargo test screenshots -- --ignored` redraws the screenshots in
+/// `docs/site/img/` (README and docs site).
 #[cfg(test)]
 mod screenshots {
     use super::*;
@@ -568,7 +569,7 @@ mod screenshots {
         let mut term = TestTerminalAdapter::new(Size::new(SIZE.0, SIZE.1)).unwrap();
         sync(model, &mut app, opened, true).unwrap();
         let done = term.draw(|f| draw(&mut app, model, f)).unwrap();
-        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("docs/screenshots");
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("docs/site/img");
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(dir.join(format!("{name}.svg")), svg(done.buffer)).unwrap();
     }
@@ -636,5 +637,23 @@ mod screenshots {
         m.update(Msg::ShowView(View::Session));
         m.update(Msg::NoteDown);
         shot(&mut m, None, "session");
+
+        m.update(Msg::NewSession("Docs pass".into()));
+        m.update(Msg::DismissToast);
+        m.update(Msg::OpenPopup(Popup::SessionPicker));
+        shot(&mut m, Some(Popup::SessionPicker), "picker");
+        m.update(Msg::PickSession(0));
+
+        m.update(Msg::ShowView(View::Files));
+        m.update(Msg::OpenPopup(Popup::Finder));
+        m.update(Msg::QueryChanged("app".into()));
+        shot(&mut m, Some(Popup::Finder), "finder");
+        m.update(Msg::ClosePopup);
+
+        m.update(Msg::OpenPopup(Popup::Search));
+        m.update(Msg::QueryEnter("item".into()));
+        m.update(Msg::PickerMove(1));
+        shot(&mut m, Some(Popup::Search), "search");
+        m.update(Msg::ClosePopup);
     }
 }

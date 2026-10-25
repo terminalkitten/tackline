@@ -1,0 +1,21 @@
+# Usage docs for tackline, built with dokk:
+#   dokk serve --root docs      # live preview
+#   dokk build --root docs      # static site in docs/.dokk/build
+title = "tackline"
+description = "Steer coding agents from your terminal: put prompt instructions on lines of code."
+content_dir = "site"
+
+[theme]
+color = "teal"
+
+[[sidebar]]
+label = "Start"
+items = ["index.md", "getting-started.md", "workflow.md"]
+
+[[sidebar]]
+label = "Guides"
+items = ["guides/notes.md", "guides/sessions.md", "guides/diff.md", "guides/search.md"]
+
+[[sidebar]]
+label = "Reference"
+items = ["reference/keys.md", "reference/cli.md", "reference/data.md", "reference/terminals.md"]

@@ -11,7 +11,7 @@ Markdown prompt for Claude Code.
 This is agent steering, not code review: notes are instructions and context
 for an agent, not verdicts on the code.
 
-![Files view with notes in the gutter](docs/screenshots/files.svg)
+![Files view with notes in the gutter](docs/site/img/files.svg)
 
 ## Install
 
@@ -64,10 +64,10 @@ note is marked stale (`⚠`) and left out of the prompt with a warning.
 
 | | |
 |---|---|
-| ![Note popup](docs/screenshots/note.svg) | ![Diff view](docs/screenshots/diff.svg) |
+| ![Note popup](docs/site/img/note.svg) | ![Diff view](docs/site/img/diff.svg) |
 | **Note popup**: location, code and target session (`Tab` cycles). | **Diff view**: notes attach to new-side lines. |
 
-![Session view](docs/screenshots/session.svg)
+![Session view](docs/site/img/session.svg)
 
 ## Keys
 
@@ -135,7 +135,15 @@ On first run tackline offers to add `.tackline/` to `.gitignore`.
 cargo fmt --check
 cargo clippy --all-targets -- -D warnings
 cargo test
-cargo test screenshots -- --ignored   # redraw docs/screenshots/*.svg
+cargo test screenshots -- --ignored   # redraw docs/site/img/*.svg
+```
+
+The usage docs are in [`docs/site/`](docs/site/index.md), built with
+[dokk](https://github.com/terminalkitten/dokk):
+
+```sh
+dokk serve --root docs   # live preview
+dokk build --root docs   # static site in docs/.dokk/build
 ```
 
 The spec is in [`docs/PLAN.md`](docs/PLAN.md). Built on
