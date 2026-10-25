@@ -5,6 +5,7 @@ use std::path::Path;
 use std::time::Duration;
 
 use anyhow::Result;
+use crossterm::clipboard::CopyToClipboard;
 use crossterm::event::{
     KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
 };
@@ -111,13 +112,30 @@ pub fn run(mut model: Model) -> Result<()> {
     Ok(())
 }
 
-/// Copy with the OS clipboard, kept alive so Linux clipboard owners don't
-/// vanish with it.
+/// Copy with the OS clipboard (kept alive, so Linux clipboard owners don't
+/// vanish with it). Over ssh, or when that fails, ask the terminal to copy
+/// with OSC 52, which also reaches the local clipboard through ssh and tmux
+/// (tmux needs `set -g set-clipboard on`).
 fn copy(clipboard: &mut Option<arboard::Clipboard>, text: String) -> Result<()> {
-    if clipboard.is_none() {
-        *clipboard = Some(arboard::Clipboard::new()?);
+    let remote = ["SSH_CONNECTION", "SSH_TTY"]
+        .iter()
+        .any(|v| std::env::var_os(v).is_some());
+    if !remote {
+        let mut os_copy = || -> Result<()> {
+            if clipboard.is_none() {
+                *clipboard = Some(arboard::Clipboard::new()?);
+            }
+            clipboard
+                .as_mut()
+                .expect("just set")
+                .set_text(text.clone())?;
+            Ok(())
+        };
+        if os_copy().is_ok() {
+            return Ok(());
+        }
     }
-    clipboard.as_mut().expect("just set").set_text(text)?;
+    crossterm::execute!(std::io::stdout(), CopyToClipboard::to_clipboard_from(text))?;
     Ok(())
 }
 

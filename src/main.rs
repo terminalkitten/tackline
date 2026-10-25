@@ -1,7 +1,7 @@
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 
-use tackline::model::Session;
+use tackline::model::{Session, note_count};
 use tackline::store::{self, FsStore, Store};
 use tackline::{app, compile, git, highlight};
 
@@ -62,7 +62,7 @@ fn main() -> Result<()> {
                 } else {
                     ' '
                 };
-                println!("{mark} {} ({} notes)", s.name, s.notes.len());
+                println!("{mark} {} ({})", s.name, note_count(s.notes.len()));
             }
         }
         Some(Command::Export { session }) => {
