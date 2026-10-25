@@ -95,7 +95,11 @@ pub struct NoteText {
 }
 
 impl NoteText {
-    pub fn new(text: &str) -> Self {
+    /// `shift_enter`: the terminal reports Shift+Enter (kitty protocol);
+    /// otherwise the title points at Ctrl+J.
+    pub fn new(text: &str, shift_enter: bool) -> Self {
+        let newline = if shift_enter { "Shift+Enter" } else { "Ctrl+J" };
+        let title = format!(" Prompt · Enter saves · {newline} newline · Esc cancels ");
         let lines = if text.is_empty() {
             vec![String::new()]
         } else {
@@ -103,10 +107,7 @@ impl NoteText {
         };
         let mut component = TextArea::new(lines)
             .borders(borders(true))
-            .title(
-                Title::from(" Prompt · Enter saves · Shift+Enter newline · Esc cancels ")
-                    .alignment(HorizontalAlignment::Left),
-            )
+            .title(Title::from(title).alignment(HorizontalAlignment::Left))
             .cursor_style(Style::new().add_modifier(Modifier::REVERSED))
             // tui-textarea underlines the cursor line by default.
             .cursor_line_style(Style::new())
@@ -210,7 +211,7 @@ mod tests {
 
     #[test]
     fn enter_saves_shift_enter_is_newline() {
-        let mut text = NoteText::new("");
+        let mut text = NoteText::new("", true);
         for c in "make it async".chars() {
             press(&mut text, Key::Char(c), KeyModifiers::NONE);
         }
@@ -233,7 +234,7 @@ mod tests {
 
     #[test]
     fn edit_starts_with_text() {
-        let mut text = NoteText::new("old\ntext");
+        let mut text = NoteText::new("old\ntext", true);
         press(&mut text, Key::Char('!'), KeyModifiers::NONE);
         assert_eq!(
             press(&mut text, Key::Char('s'), KeyModifiers::CONTROL),

@@ -88,7 +88,7 @@ pub fn run(mut model: Model) -> Result<()> {
         if dirty {
             let opened = model.popup.filter(|_| model.popup != shown_popup);
             shown_popup = model.popup;
-            sync(&mut model, &mut app, opened)?;
+            sync(&mut model, &mut app, opened, enhanced)?;
             term.draw(|f| draw(&mut app, &model, f))?;
         }
         // Keep drawing while highlighting catches up with the visible rows.
@@ -137,7 +137,7 @@ fn mount(root: &Path, listener: EventListenerCfg<NoUserEvent>) -> Result<App> {
     )?;
     app.mount(Id::Toast, Box::new(Toast::default()), vec![])?;
     app.mount(Id::NoteHeader, Box::new(NoteHeader::default()), vec![])?;
-    app.mount(Id::NoteText, Box::new(NoteText::new("")), vec![])?;
+    app.mount(Id::NoteText, Box::new(NoteText::new("", false)), vec![])?;
     app.mount(Id::QueryInput, Box::new(QueryInput::default()), vec![])?;
     app.mount(
         Id::PickerResults,
@@ -158,7 +158,7 @@ fn any(value: impl PropBound) -> AttrValue {
 
 /// Push the model's state into the components' props. `opened` is a popup
 /// that just opened and starts fresh.
-fn sync(model: &mut Model, app: &mut App, opened: Option<Popup>) -> Result<()> {
+fn sync(model: &mut Model, app: &mut App, opened: Option<Popup>, shift_enter: bool) -> Result<()> {
     match opened {
         Some(Popup::NewSession) => app.attr(
             &Id::NameInput,
@@ -184,7 +184,11 @@ fn sync(model: &mut Model, app: &mut App, opened: Option<Popup>) -> Result<()> {
         }
         Some(Popup::Note) => {
             let text = model.draft.as_ref().map_or("", |d| d.text.as_str());
-            app.remount(Id::NoteText, Box::new(NoteText::new(text)), vec![])?;
+            app.remount(
+                Id::NoteText,
+                Box::new(NoteText::new(text, shift_enter)),
+                vec![],
+            )?;
         }
         Some(Popup::Finder | Popup::Search | Popup::FindInFile) => {
             let kind = model.picker.as_ref().map(|p| p.kind);
@@ -327,7 +331,7 @@ mod tests {
         let (w, h) = model.size;
         let mut app = mount(&model.root, EventListenerCfg::default()).unwrap();
         let mut term = TestTerminalAdapter::new(Size::new(w, h)).unwrap();
-        sync(model, &mut app, opened).unwrap();
+        sync(model, &mut app, opened, false).unwrap();
         let done = term.draw(|f| draw(&mut app, model, f)).unwrap();
         buffer_to_string(done.buffer)
     }

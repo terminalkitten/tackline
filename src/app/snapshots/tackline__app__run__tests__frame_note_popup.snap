@@ -10,7 +10,7 @@ expression: "frame(&mut m, Some(Popup::Note))"
 │                                                                              │
 │Session: Perf                                                                 │
 ╰──────────────────────────────────────────────────────────────────────────────╯
-╭ Prompt · Enter saves · Shift+Enter newline · Esc cancels ────────────────────╮
+╭ Prompt · Enter saves · Ctrl+J newline · Esc cancels ─────────────────────────╮
 │                                                                              │
 │                                                                              │
 │                                                                              │

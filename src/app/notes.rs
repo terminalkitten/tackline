@@ -7,7 +7,7 @@ use super::{Cursor, Model, Motion, Popup, ToastKind, display_col};
 use crate::anchor::{Relocation, capture, relocate};
 use crate::components::code_view::{CodeProps, Mark, Selection as SelectionView};
 use crate::components::note_popup;
-use crate::model::{Anchor, Note, Span};
+use crate::model::{Anchor, Note, Span, View};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SelectionKind {
@@ -240,7 +240,21 @@ impl Model {
     }
 
     /// `d` in the Session view (asks first).
+    /// `d`: in the Session view the selected note, in the code view the
+    /// note under the cursor (asks first).
     pub(super) fn ask_delete_note(&mut self) {
+        if self.view == View::Files {
+            let line = self.cursor.line;
+            let Some(mark) = self
+                .marks
+                .iter()
+                .find(|m| (m.start..=m.end).contains(&line))
+            else {
+                return self.toast(ToastKind::Warning, "No note on this line");
+            };
+            self.note_cursor = mark.note;
+            self.resolve_notes();
+        }
         if !self.notes.is_empty() {
             self.popup = Some(Popup::ConfirmDelete);
         }
@@ -495,6 +509,39 @@ mod tests {
         );
         assert!(m.draft.as_ref().unwrap().editing.is_none());
         assert_eq!(m.draft.as_ref().unwrap().span, Span::lines(4, 5));
+    }
+
+    #[test]
+    fn d_in_code_view_deletes_the_note_under_the_cursor() {
+        let repo = fixture_repo();
+        let mut m = model(repo.path());
+        m.update(Msg::NewSession("S".into()));
+        m.update(Msg::OpenFile("src/matcher.rs".into()));
+        press(&mut m, &[Msg::AddNote, Msg::SaveNote("first line".into())]);
+        press(
+            &mut m,
+            &[
+                Msg::Move(Motion::Bottom),
+                Msg::AddNote,
+                Msg::SaveNote("last line".into()),
+            ],
+        );
+        m.update(Msg::Move(Motion::Up));
+        m.update(Msg::AskDeleteNote);
+        assert_eq!(m.popup, None, "no note on line 8");
+        assert_eq!(m.toast.as_ref().unwrap().text, "No note on this line");
+        press(&mut m, &[Msg::Move(Motion::Bottom), Msg::AskDeleteNote]);
+        assert_eq!(m.popup, Some(Popup::ConfirmDelete));
+        m.update(Msg::DeleteNote);
+        let texts: Vec<_> = m
+            .active_session()
+            .unwrap()
+            .notes
+            .iter()
+            .map(|n| n.text.clone())
+            .collect();
+        assert_eq!(texts, ["first line"]);
+        assert_eq!(m.marks.len(), 1);
     }
 
     #[test]

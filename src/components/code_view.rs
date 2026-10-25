@@ -290,6 +290,7 @@ impl AppComponent<Msg, NoUserEvent> for CodeView {
             (Key::Char('V'), false) => return Some(Msg::ToggleSelection(SelectionKind::Line)),
             (Key::Esc, _) => return Some(Msg::ClearSelection),
             (Key::Char('c'), false) => return Some(Msg::AddNote),
+            (Key::Char('d'), false) => return Some(Msg::AskDeleteNote),
             (Key::Char('/'), false) => return Some(Msg::OpenPopup(Popup::FindInFile)),
             (Key::Char('n'), false) => return Some(Msg::FindNext),
             (Key::Char('N'), false) => return Some(Msg::FindPrev),
