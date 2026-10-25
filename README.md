@@ -213,6 +213,14 @@ cargo test screenshots -- --ignored   # redraw docs/site/img/*.svg
 cargo test theme_gallery -- --ignored # redraw the theme gallery and its docs page
 ```
 
+The demo GIF and the web screenshots are scripted on a small demo project. Build first
+(`cargo build --release`), then:
+
+```sh
+vhs docs/demo/demo.tape     # docs/site/img/demo.gif (needs vhs)
+docs/demo/web-shots.sh      # docs/site/img/web-*.png (needs Python with Playwright)
+```
+
 ### Releasing
 
 Bump `version` in `Cargo.toml`, commit, then tag and push:
