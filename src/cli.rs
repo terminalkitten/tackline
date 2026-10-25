@@ -31,6 +31,15 @@ enum Command {
     },
     /// List sessions with note counts; `*` marks the active one.
     Sessions,
+    /// Open tackline in the browser (on this machine only).
+    Serve {
+        /// Port on 127.0.0.1; 0 picks a free one.
+        #[arg(long, default_value_t = 7878)]
+        port: u16,
+        /// Don't open the browser, just print the link.
+        #[arg(long)]
+        no_open: bool,
+    },
 }
 
 /// The `tackline` (and `tack`) command.
@@ -40,12 +49,21 @@ pub fn main() -> Result<()> {
     let root = git::repo_root(&cwd).unwrap_or(cwd);
     let store = FsStore::new(&root);
 
+    let theme = || {
+        highlight::load_theme(cli.theme.as_deref()).with_context(|| {
+            let names: Vec<_> = highlight::theme_names().collect();
+            format!("unknown theme; available: {}", names.join(", "))
+        })
+    };
     match cli.command {
+        Some(Command::Serve { port, no_open }) => {
+            if let Some(rev) = &cli.base {
+                git::diff(&root, Some(rev)).with_context(|| format!("--base {rev}"))?;
+            }
+            crate::web::serve(root, theme()?, cli.base.clone(), port, !no_open)?;
+        }
         None => {
-            let Some(theme) = highlight::load_theme(cli.theme.as_deref()) else {
-                let names: Vec<_> = highlight::theme_names().collect();
-                bail!("unknown theme; available: {}", names.join(", "));
-            };
+            let theme = theme()?;
             let mut model = app::Model::new(root.clone(), theme, Box::new(FsStore::new(&root)))?;
             if git::repo_root(&root).is_some() {
                 if let Some(rev) = &cli.base {

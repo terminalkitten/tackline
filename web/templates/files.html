@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}{% if let Some(code) = code %}{{ code.path }} · {% endif %}tackline{% endblock %}
+{% block body %}
+<aside class="side tree">{{ tree|safe }}</aside>
+<main>
+  {% if let Some(code) = code %}
+    {% include "code.html" %}
+  {% else %}
+  <section class="empty">
+    <h1>Steer your coding agent</h1>
+    <ol>
+      <li>Open a file on the left (or search at the top).</li>
+      <li>Click a line number, shift-click another to select a block.</li>
+      <li>Write what the agent should do there and save the note.</li>
+      <li>Open <a href="/session">Session</a> and copy the prompt for Claude Code.</li>
+    </ol>
+  </section>
+  {% endif %}
+</main>
+{% endblock %}

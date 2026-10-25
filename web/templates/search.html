@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Search · tackline{% endblock %}
+{% block layout %}wide{% endblock %}
+{% block body %}
+<main class="search-results">
+  <form action="/search" method="get" class="big-search">
+    <input type="search" name="q" value="{{ q }}" placeholder="Find files and code…" autofocus>
+    <button>Search</button>
+  </form>
+  {% if !q.is_empty() %}
+  <h2>Files</h2>
+  {% if files.is_empty() %}<p class="placeholder">No files match.</p>{% endif %}
+  <ul class="hits">{% for f in files %}<li><a href="/code?path={{ f.path|urlencode }}">{{ f.path }}</a></li>{% endfor %}</ul>
+  <h2>Code</h2>
+  {% if hits.is_empty() %}<p class="placeholder">No matches in the code.</p>{% endif %}
+  <ul class="hits">{% for h in hits %}<li><a href="/code?path={{ h.path|urlencode }}&line={{ h.line }}"><span class="loc">{{ h.path }}:{{ h.line }}</span> <code>{{ h.text }}</code></a></li>{% endfor %}</ul>
+  {% endif %}
+</main>
+{% endblock %}

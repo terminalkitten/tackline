@@ -1,0 +1,43 @@
+{# The code or diff of one file, with note marks and line selection. Needs `code` and `nav`. #}
+<section class="code-pane">
+  <h2 class="file">{{ code.path }}</h2>
+  {% if let Some(p) = code.placeholder %}
+  <p class="placeholder">{{ p }}</p>
+  {% else %}
+  <table class="code {% if code.diff %}diff{% endif %}" data-file="{{ code.path }}" data-view="{% if code.diff %}diff{% else %}code{% endif %}" data-focus="{{ code.focus }}">
+    {% for r in code.rows %}
+    <tr data-index="{{ r.index }}" class="{{ r.kind }}{% if r.noted %} noted{% endif %}{% if r.stale %} stale{% endif %}"{% if r.noted %} title="{{ r.excerpt }}"{% endif %}>
+      {% if code.diff %}<td class="num old">{{ r.old }}</td>{% endif %}
+      <td class="num" title="Click to select, shift-click to extend">{{ r.num }}</td>
+      <td class="mark">{% if r.noted %}<a href="/notes/{{ r.note_id }}/edit?return={{ nav.here|urlencode }}" title="{{ r.excerpt }}">{{ r.marker }}</a>{% endif %}</td>
+      {% if code.diff %}<td class="sign">{{ r.sign }}</td>{% endif %}
+      <td class="src">{{ r.html|safe }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  <form id="add-note" class="add-note" action="/notes" method="post" hidden>
+    <input type="hidden" name="file" value="{{ code.path }}">
+    <input type="hidden" name="view" value="{% if code.diff %}diff{% else %}code{% endif %}">
+    <input type="hidden" name="start">
+    <input type="hidden" name="end">
+    <input type="hidden" name="return" value="{{ nav.here }}">
+    <div class="add-note-head">
+      <strong>Add a note</strong> <span class="where"></span>
+      <button type="button" class="link" data-clear>Cancel</button>
+    </div>
+    <textarea name="text" rows="3" placeholder="What should the agent do here?  (Ctrl+Enter saves)" required></textarea>
+    <div class="add-note-foot">
+      {% if nav.sessions.is_empty() %}
+      <input name="new_session" placeholder="Session name, e.g. Search speedup">
+      {% else %}
+      <label>Session
+        <select name="session">
+          {% for s in nav.sessions %}<option value="{{ s.id }}" {% if s.active %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+        </select>
+      </label>
+      {% endif %}
+      <button>Save note</button>
+    </div>
+  </form>
+  {% endif %}
+</section>

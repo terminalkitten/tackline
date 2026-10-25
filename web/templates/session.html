@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Session · tackline{% endblock %}
+{% block layout %}wide{% endblock %}
+{% block body %}
+<main class="session">
+  {% if let Some(name) = name %}
+  <div class="session-head">
+    <h1>{{ name }}</h1>
+    <button type="button" class="primary" data-copy-prompt {% if notes.is_empty() %}disabled{% endif %}>Copy prompt</button>
+  </div>
+  {% for w in warnings %}<p class="warn">⚠ {{ w }}</p>{% endfor %}
+  {% if notes.is_empty() %}
+  <p class="placeholder">No notes yet. Open a file, select lines and add a note.</p>
+  {% endif %}
+  <ol class="notes">
+    {% for n in notes %}
+    <li class="{% if n.stale %}stale{% endif %}">
+      <div class="note-head">
+        {% if let Some(j) = n.jump %}<a href="{{ j }}" class="loc">{{ n.location }}</a>{% else %}<span class="loc">⚠ stale · {{ n.location }}</span>{% endif %}
+        <span class="actions">
+          <form action="/notes/{{ n.id }}/move" method="post"><input type="hidden" name="dir" value="up"><button title="Move up">↑</button></form>
+          <form action="/notes/{{ n.id }}/move" method="post"><input type="hidden" name="dir" value="down"><button title="Move down">↓</button></form>
+          <a href="/notes/{{ n.id }}/edit?return=/session">Edit</a>
+          <form action="/notes/{{ n.id }}/delete" method="post" onsubmit="return confirm('Delete this note?')"><input type="hidden" name="return" value="/session"><button class="danger">Delete</button></form>
+        </span>
+      </div>
+      <pre class="snippet">{% for l in n.snippet %}{{ l|safe }}
+{% endfor %}{% if n.more > 0 %}<span class="more">… {{ n.more }} more lines</span>{% endif %}</pre>
+      <p class="text">{{ n.text }}</p>
+    </li>
+    {% endfor %}
+  </ol>
+  {% if !prompt.is_empty() %}
+  <details class="prompt"><summary>Show the prompt</summary><pre>{{ prompt }}</pre></details>
+  {% endif %}
+  {% else %}
+  <section class="empty">
+    <h1>No session yet</h1>
+    <p>Create one with <strong>New session</strong> at the top, or just add a note: a session is made for you.</p>
+  </section>
+  {% endif %}
+</main>
+{% endblock %}

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}tackline{% endblock %}</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/htmx.min.js" defer></script>
+  <script src="/static/app.js" defer></script>
+  <style>:root { {{ nav.theme_css|safe }} }</style>
+</head>
+<body hx-boost="true">
+  <header class="top">
+    <a class="brand" href="/">tackline</a>
+    <nav class="tabs">
+      <a href="/" {% if nav.tab == "files" %}class="on"{% endif %}>Files</a>
+      {% if nav.git %}<a href="/diff" {% if nav.tab == "diff" %}class="on"{% endif %}>Diff</a>{% endif %}
+      <a href="/session" {% if nav.tab == "session" %}class="on"{% endif %}>Session</a>
+    </nav>
+    <form class="search" action="/search" method="get">
+      <input type="search" name="q" placeholder="Find files and code…" aria-label="Search">
+    </form>
+    <form class="session-pick" action="/sessions/active" method="post">
+      <input type="hidden" name="return" value="{{ nav.here }}">
+      <label>Session
+        <select name="id" onchange="this.form.requestSubmit()" {% if nav.sessions.is_empty() %}disabled{% endif %}>
+          {% if nav.sessions.is_empty() %}<option>No sessions yet</option>{% endif %}
+          {% for s in nav.sessions %}
+          <option value="{{ s.id }}" {% if s.active %}selected{% endif %}>{{ s.name }} ({{ s.count }})</option>
+          {% endfor %}
+        </select>
+      </label>
+    </form>
+    <details class="new-session">
+      <summary>New session</summary>
+      <form action="/sessions" method="post">
+        <input type="hidden" name="return" value="{{ nav.here }}">
+        <input name="name" placeholder="Name, e.g. Search speedup" required>
+        <button>Create</button>
+      </form>
+    </details>
+  </header>
+  {% if let Some(msg) = nav.msg %}<div class="msg" role="status">{{ msg }}</div>{% endif %}
+  <div class="layout {% block layout %}{% endblock %}">
+    {% block body %}{% endblock %}
+  </div>
+</body>
+</html>

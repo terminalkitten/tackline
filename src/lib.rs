@@ -10,3 +10,4 @@ pub mod search;
 pub mod store;
 #[cfg(test)]
 mod testutil;
+pub mod web;

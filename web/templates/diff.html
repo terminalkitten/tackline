@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Diff · tackline{% endblock %}
+{% block body %}
+<aside class="side changes">
+  <h3>Changes vs {{ against }}</h3>
+  {% if let Some(e) = error %}<p class="placeholder">{{ e }}</p>{% endif %}
+  {% if files.is_empty() && error.is_none() %}<p class="placeholder">No changes</p>{% endif %}
+  {% for f in files %}
+  <a href="/diff?path={{ f.path|urlencode }}" {% if f.selected %}class="current"{% endif %}><span class="add">+{{ f.added }}</span> <span class="del">-{{ f.removed }}</span> {{ f.path }}</a>
+  {% endfor %}
+</aside>
+<main>
+  {% if let Some(code) = code %}{% include "code.html" %}{% endif %}
+</main>
+{% endblock %}
