@@ -1,5 +1,9 @@
 # tackline
 
+[Docs](https://terminalkitten.github.io/tackline/) ·
+[crates.io](https://crates.io/crates/tackline) ·
+[GitHub](https://github.com/terminalkitten/tackline)
+
 > A tackline is the short length of line on a signal halyard that separates
 > the flags. This tool hangs signals on lines of code for an agent to read.
 

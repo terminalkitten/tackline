@@ -11,6 +11,10 @@ or your git diff, select the code you want changed, and write an instruction rig
 notes collect in a session, and the session compiles into one Markdown prompt that you paste into
 the agent or pipe into `claude -p`.
 
+::linkbutton[Get started]{href="getting-started.md"}
+::linkbutton[crates.io]{href="https://crates.io/crates/tackline" variant="secondary"}
+::linkbutton[GitHub]{href="https://github.com/terminalkitten/tackline" variant="secondary"}
+
 ::image[The Files view: noted code tinted yellow, the note under the cursor in the bottom border]{src="img/files.svg"}
 
 ## Why it exists

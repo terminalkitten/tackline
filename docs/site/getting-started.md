@@ -11,6 +11,8 @@ tackline is a Rust program. With a [Rust toolchain](https://rustup.rs) installed
 cargo install tackline
 ```
 
+The crate is [tackline on crates.io](https://crates.io/crates/tackline).
+
 That puts two commands on your `PATH` that do the same thing: `tackline`, and `tack` for short.
 Every example in these docs works with either. From a checkout of the repository, use
 `cargo install --path .` instead.

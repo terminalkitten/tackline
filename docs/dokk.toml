@@ -8,6 +8,7 @@ site_url = "https://terminalkitten.github.io/tackline/"
 
 [links]
 github = "https://github.com/terminalkitten/tackline"
+crates = "https://crates.io/crates/tackline"
 edit_url = "https://github.com/terminalkitten/tackline/edit/main/docs/site/{path}"
 
 [theme]
