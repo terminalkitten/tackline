@@ -36,9 +36,20 @@ jobs:
       id-token: write  # trusted publishing
     steps:
       - uses: actions/checkout@v7
+      # Already on crates.io (published by hand, or a re-run): skip publishing,
+      # so the draft release still gets made.
+      - name: Already published?
+        id: published
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          status=$(curl -s -o /dev/null -w '%{http_code}' -A "tackline-release" \
+            "https://crates.io/api/v1/crates/tackline/$version")
+          echo "done=$([ "$status" = 200 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
       - uses: rust-lang/crates-io-auth-action@v1
+        if: steps.published.outputs.done != 'true'
         id: auth
-      - run: cargo publish
+      - if: steps.published.outputs.done != 'true'
+        run: cargo publish
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
 
