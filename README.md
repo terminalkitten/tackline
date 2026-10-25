@@ -1,49 +1,94 @@
 # tackline
 
+**Point at code, write what your coding agent should do there, and hand it one
+prompt.** Works with Claude Code, Codex, opencode, aider, Cursor, or anything
+else that takes a prompt.
+
+![tackline in ten seconds: select code, add a note, copy the prompt](docs/site/img/demo.gif)
+
 [Docs](https://terminalkitten.github.io/tackline/) ·
 [crates.io](https://crates.io/crates/tackline) ·
 [GitHub](https://github.com/terminalkitten/tackline)
 
-> A tackline is the short length of line on a signal halyard that separates
-> the flags. This tool hangs signals on lines of code for an agent to read.
-
-A terminal app for steering coding agents. Browse your files or the git
-diff, select a line or a span of code, and attach a prompt instruction to it.
-Notes are grouped into named sessions, and a session compiles into one
-Markdown prompt for Claude Code.
-
-This is agent steering, not code review: notes are instructions and context
-for an agent, not verdicts on the code.
-
-![Files view: noted code tinted yellow, the note under the cursor in the bottom border](docs/site/img/files.svg)
-
 ## Install
 
+One command, no Rust needed:
+
 ```sh
+# macOS and Linux
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/terminalkitten/tackline/releases/latest/download/tackline-installer.sh | sh
+
+# Homebrew
+brew install terminalkitten/tap/tackline
+
+# Windows (PowerShell)
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/terminalkitten/tackline/releases/latest/download/tackline-installer.ps1 | iex"
+
+# With Rust
 cargo install tackline
 ```
 
 This installs two commands that do the same thing: `tackline` and the shorter
-`tack`. From a checkout, use `cargo install --path .`.
+`tack`. Prebuilt binaries for macOS, Linux and Windows are on the
+[releases page](https://github.com/terminalkitten/tackline/releases). See the
+[install guide](https://terminalkitten.github.io/tackline/getting-started/)
+for more.
 
-Run it inside a git repository (or any subdirectory of one). Outside a repo
-the Files view still works, without the Diff view.
+## What it does
 
-## Workflow
+> A tackline is the short length of line on a signal halyard that separates
+> the flags. This tool hangs signals on lines of code for an agent to read.
 
-1. `tackline` opens on the Diff view if you have uncommitted changes,
-   otherwise on the Files view.
+Browse your files or the git diff, select a line or a block of code, and
+attach an instruction to it. Notes are grouped into named sessions, and a
+session compiles into one Markdown prompt, each note with its file, lines and
+code. That's agent steering, not code review: notes are instructions for an
+agent, not verdicts on the code.
+
+1. Run `tackline` (or `tack`) in a repository. It opens on the Diff view if you
+   have uncommitted changes, otherwise on the Files view.
 2. Select code with `V` (lines), `v` (characters), Shift+arrows or a mouse
    drag, and press `c`. Write the instruction and press `Enter`.
    The first time, you name a session.
 3. Press `3` to review the session: every note with its location, code and
    instruction, in prompt order (`J`/`K` reorder).
-4. Press `y` to copy the compiled prompt and paste it into Claude Code, or
-   skip the clipboard:
+4. Press `y` to copy the prompt and paste it into your agent, or hand it over
+   from the shell.
 
-```sh
-tackline export | claude -p
-tackline export "Search speedup" > prompt.md
+Prefer clicking? `tackline serve` opens the same tool
+[in your browser](#in-the-browser).
+
+## Use it with your agent
+
+The prompt is plain Markdown, so any agent that takes a prompt can use it:
+
+| Agent | Hand over the prompt |
+|---|---|
+| Claude Code | `tackline export \| claude -p` |
+| Codex | `codex exec "$(tackline export)"` |
+| opencode | `opencode run "$(tackline export)"` |
+| aider | `aider --message "$(tackline export)"` |
+| Cursor | paste it into the chat (`y` copies), or `agent -p "$(tackline export)"` |
+| Anything else | `y` copies it; `tackline export > prompt.md` saves it |
+
+**Claude Code extra:** a skill turns your notes into a slash command. Save this
+as `.claude/skills/tackline/SKILL.md` and run `/tackline` in Claude Code:
+
+```markdown
+---
+name: tackline
+description: Work through the notes in my active tackline session
+allowed-tools: Bash(tackline *)
+---
+
+## My notes on the code
+
+!`tackline export`
+
+## Your task
+
+Work through these notes in order. Each one names a file, the lines, the code
+as it is now, and what to do there.
 ```
 
 The compiled prompt looks like this:
@@ -61,6 +106,8 @@ The compiled prompt looks like this:
    ```
    replace the loop with an iterator chain
 ````
+
+![Files view: noted code tinted yellow, the note under the cursor in the bottom border](docs/site/img/files.svg)
 
 Noted ("tacked") code is easy to spot: it's tinted light yellow, with `●`/`│`
 markers in the gutter, and the bottom border of the code pane shows the start
