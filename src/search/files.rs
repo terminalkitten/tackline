@@ -3,11 +3,12 @@
 use std::path::{Path, PathBuf};
 
 /// Every file and directory under `root` (relative paths, `is_dir`), skipping
-/// gitignored entries and `.git`. Hidden files are included.
+/// gitignored entries, `.git` and `.tackline`. Hidden files are included.
 pub fn walk(root: &Path) -> Vec<(PathBuf, bool)> {
     ignore::WalkBuilder::new(root)
         .hidden(false)
-        .filter_entry(|e| e.file_name() != ".git")
+        // Git's and tackline's own data aren't part of the code.
+        .filter_entry(|e| e.file_name() != ".git" && e.file_name() != crate::store::DATA_DIR)
         .build()
         .filter_map(Result::ok)
         .filter(|e| e.depth() > 0)
@@ -16,6 +17,34 @@ pub fn walk(root: &Path) -> Vec<(PathBuf, bool)> {
             Some((e.path().strip_prefix(root).ok()?.to_path_buf(), is_dir))
         })
         .collect()
+}
+
+/// Files bigger than this aren't shown.
+pub const MAX_FILE_BYTES: u64 = 2 * 1024 * 1024;
+
+/// A file's lines for viewing (at least one), or why it can't be shown:
+/// missing, too large, binary. Invalid UTF-8 is replaced, not refused.
+pub fn read_lines(path: &Path) -> Result<Vec<String>, String> {
+    let name = path.display();
+    let meta = std::fs::metadata(path).map_err(|e| format!("Can't open {name}: {e}"))?;
+    if meta.len() > MAX_FILE_BYTES {
+        return Err(format!(
+            "File too large to show ({} MB)",
+            meta.len() / (1024 * 1024)
+        ));
+    }
+    let bytes = std::fs::read(path).map_err(|e| format!("Can't read {name}: {e}"))?;
+    if bytes.iter().take(8000).any(|&b| b == 0) {
+        return Err("Binary file".to_string());
+    }
+    let mut lines: Vec<String> = String::from_utf8_lossy(&bytes)
+        .lines()
+        .map(str::to_string)
+        .collect();
+    if lines.is_empty() {
+        lines.push(String::new());
+    }
+    Ok(lines)
 }
 
 /// Files matching `query` fuzzily (nucleo, path-aware, smart case), best
@@ -49,6 +78,18 @@ mod tests {
         assert_eq!(find(&files, "app", 10).len(), 2);
         assert_eq!(find(&files, "App", 10), ["web/App.vue"], "smart case");
         assert_eq!(find(&files, "", 2), ["src/matcher.rs", "scripts/score.py"]);
+    }
+
+    #[test]
+    fn walk_skips_tackline_data() {
+        let repo = crate::testutil::fixture_repo();
+        std::fs::create_dir_all(repo.path().join(".tackline/sessions")).unwrap();
+        std::fs::write(repo.path().join(".tackline/sessions/x.json"), "{}").unwrap();
+        assert!(
+            walk(repo.path())
+                .iter()
+                .all(|(p, _)| !p.starts_with(".tackline"))
+        );
     }
 
     #[test]

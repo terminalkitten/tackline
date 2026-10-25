@@ -24,10 +24,10 @@ use crate::components::session_view::NoteRow;
 use crate::git::{FileDiff, Row};
 use crate::highlight::{Highlighted, TAB};
 use crate::model::{Session, State, View};
+use crate::search::files::read_lines;
 use crate::store::{Store, StoreError};
 
 /// Files bigger than this show a placeholder.
-const MAX_FILE_BYTES: u64 = 2 * 1024 * 1024;
 const TREE_WIDTH: u16 = 32;
 /// Lines highlighted per frame, so a jump deep into a big file never blocks.
 // ponytail: fixed count (~35ms on a fast machine); make it time-based if
@@ -474,28 +474,13 @@ impl Model {
 
     fn open(&mut self, path: PathBuf) {
         let full = self.root.join(&path);
-        let meta = fs::metadata(&full);
-        let mtime = meta.as_ref().ok().and_then(|m| m.modified().ok());
-        let content = match meta {
-            Err(e) => Content::Placeholder(format!("Can't open {}: {e}", path.display())),
-            Ok(m) if m.len() > MAX_FILE_BYTES => Content::Placeholder(format!(
-                "File too large to show ({} MB)",
-                m.len() / (1024 * 1024)
-            )),
-            Ok(_) => match fs::read(&full) {
-                Err(e) => Content::Placeholder(format!("Can't read {}: {e}", path.display())),
-                Ok(bytes) if bytes.iter().take(8000).any(|&b| b == 0) => {
-                    Content::Placeholder("Binary file".to_string())
-                }
-                Ok(bytes) => {
-                    let text = String::from_utf8_lossy(&bytes);
-                    let mut lines: Vec<String> = text.lines().map(str::to_string).collect();
-                    if lines.is_empty() {
-                        lines.push(String::new());
-                    }
-                    Content::Text(lines)
-                }
-            },
+        let mtime = fs::metadata(&full).ok().and_then(|m| m.modified().ok());
+        // Errors show with the path as given (relative), like before.
+        let content = match read_lines(&full) {
+            Ok(lines) => Content::Text(lines),
+            Err(e) => Content::Placeholder(
+                e.replace(&full.display().to_string(), &path.display().to_string()),
+            ),
         };
         if self.state.last_file.as_ref() != Some(&path) {
             self.state.last_file = Some(path.clone());
@@ -1062,7 +1047,8 @@ mod tests {
             Content::Placeholder("Binary file".into())
         );
         let big = fs::File::create(repo.path().join("big.txt")).unwrap();
-        big.set_len(MAX_FILE_BYTES + 1).unwrap();
+        big.set_len(crate::search::files::MAX_FILE_BYTES + 1)
+            .unwrap();
         m.update(Msg::OpenFile("big.txt".into()));
         assert!(
             matches!(&m.file.as_ref().unwrap().content, Content::Placeholder(t) if t.contains("too large"))
