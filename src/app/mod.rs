@@ -734,8 +734,8 @@ impl Model {
             rows: &screen,
             wrap: self.wrap,
             width: cols,
-            cursor: Some(self.cursor.line)
-                .filter(|_| focused)
+            cursor: focused
+                .then_some(self.cursor.line)
                 .map(|l| (l, display_col(&lines[l], self.cursor.col))),
             current_line: self.cursor.line,
             diff: file.diff.as_ref().map(|d| &d[self.top..end]),
