@@ -1,0 +1,55 @@
+# Installs the latest release the way the README says, on fresh machines.
+# Run it after every release (Actions → Install check → Run workflow).
+name: Install check
+
+on:
+  workflow_dispatch:
+
+jobs:
+  shell:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/terminalkitten/tackline/releases/latest/download/tackline-installer.sh | sh
+      - run: |
+          ~/.cargo/bin/tackline --version
+          ~/.cargo/bin/tack --version
+
+  # Older Linux: the binaries need the glibc they were built against or newer.
+  shell-old-linux:
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ["ubuntu:22.04", "debian:12"]
+    runs-on: ubuntu-latest
+    container: ${{ matrix.image }}
+    steps:
+      - run: apt-get update -qq && apt-get install -yqq curl xz-utils ca-certificates
+      - run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/terminalkitten/tackline/releases/latest/download/tackline-installer.sh | sh
+      - run: $HOME/.cargo/bin/tackline --version
+
+  powershell:
+    runs-on: windows-latest
+    steps:
+      - run: powershell -ExecutionPolicy Bypass -c "irm https://github.com/terminalkitten/tackline/releases/latest/download/tackline-installer.ps1 | iex"
+      - run: |
+          & "$env:USERPROFILE\.cargo\bin\tackline.exe" --version
+          & "$env:USERPROFILE\.cargo\bin\tack.exe" --version
+
+  brew:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - if: runner.os == 'Linux'
+        run: echo "/home/linuxbrew/.linuxbrew/bin" >> "$GITHUB_PATH"
+      - run: |
+          brew tap terminalkitten/tackline https://github.com/terminalkitten/tackline
+          brew install terminalkitten/tackline/tackline
+          tackline --version
+          tack --version
