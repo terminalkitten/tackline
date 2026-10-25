@@ -19,7 +19,7 @@ tackline is running at http://127.0.0.1:7878/?token=…
 Press Ctrl+C to stop.
 ```
 
-::image[The web version: tacked code tinted yellow, the note marker in the margin]{src="../img/web-files.png"}
+::image[The web version: tacked code tinted yellow, each note shown under its lines]{src="../img/web-files.png"}
 
 ## Add a note
 
@@ -32,8 +32,9 @@ Press Ctrl+C to stop.
 
 ::image[Adding a note to two selected lines]{src="../img/web-add-note.png"}
 
-Tacked lines are tinted yellow with `●` in the margin; hover a tacked line to read its note, or
-click the `●` to edit it, move it to another session, or delete it. :kbd[Esc] cancels a selection.
+Tacked lines are tinted yellow with `●` in the margin, and the note shows right under them. The
+status bar at the bottom shows the note of the line under your mouse. Click the `●` or the note to
+edit it in place, move it to another session, or delete it. :kbd[Esc] cancels a selection.
 
 ## Diff
 
@@ -45,7 +46,7 @@ Select added or unchanged lines to add notes, the same way; removed lines can't 
 ## Session and the prompt
 
 **Session** lists the notes of the active session in prompt order. Move them with ↑ and ↓, edit or
-delete them, and press **Copy prompt** to put the compiled prompt on your clipboard, ready to paste
+delete them (editing happens right in the list), and press **Copy prompt** to put the compiled prompt on your clipboard, ready to paste
 into your agent. **Show the prompt** previews it.
 
 ::image[The Session tab]{src="../img/web-session.png"}
