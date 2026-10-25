@@ -11,7 +11,7 @@ or your git diff, select the code you want changed, and write an instruction rig
 notes collect in a session, and the session compiles into one Markdown prompt that you paste into
 the agent or pipe into `claude -p`.
 
-::image[The Files view: notes in the gutter next to the code they belong to]{src="img/files.svg"}
+::image[The Files view: noted code tinted yellow, the note under the cursor in the bottom border]{src="img/files.svg"}
 
 ## Why it exists
 

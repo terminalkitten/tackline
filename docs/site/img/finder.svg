@@ -107,12 +107,8 @@
 <text x="919.2" y="26" fill="#65737e">─</text>
 <text x="927.6" y="26" fill="#65737e">╮</text>
 <text x="12" y="44" fill="#c0c5ce">│</text>
-<rect x="20.4" y="30" width="8.8" height="18" fill="#c0c5ce"/>
-<rect x="28.8" y="30" width="8.8" height="18" fill="#c0c5ce"/>
-<rect x="37.2" y="30" width="8.8" height="18" fill="#c0c5ce"/>
-<text x="37.2" y="44" fill="#2b303b" font-weight="bold">r</text>
-<rect x="45.6" y="30" width="8.8" height="18" fill="#c0c5ce"/>
-<text x="45.6" y="44" fill="#2b303b" font-weight="bold">e</text>
+<text x="37.2" y="44" fill="#c0c5ce">r</text>
+<text x="45.6" y="44" fill="#c0c5ce">e</text>
 <text x="54" y="44" fill="#96b5b4">╭</text>
 <text x="70.80000000000001" y="44" fill="#96b5b4">F</text>
 <text x="79.2" y="44" fill="#96b5b4">i</text>
@@ -426,6 +422,10 @@
 <rect x="919.2" y="84" width="8.8" height="18" fill="#3a341c"/>
 <text x="927.6" y="98" fill="#65737e">│</text>
 <text x="12" y="116" fill="#c0c5ce">│</text>
+<rect x="20.4" y="102" width="8.8" height="18" fill="#c0c5ce"/>
+<rect x="28.8" y="102" width="8.8" height="18" fill="#c0c5ce"/>
+<rect x="37.2" y="102" width="8.8" height="18" fill="#c0c5ce"/>
+<rect x="45.6" y="102" width="8.8" height="18" fill="#c0c5ce"/>
 <text x="54" y="116" fill="#96b5b4">│</text>
 <rect x="62.400000000000006" y="102" width="8.8" height="18" fill="#c0c5ce"/>
 <text x="62.400000000000006" y="116" fill="#2b303b">w</text>

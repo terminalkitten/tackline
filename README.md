@@ -11,7 +11,7 @@ Markdown prompt for Claude Code.
 This is agent steering, not code review: notes are instructions and context
 for an agent, not verdicts on the code.
 
-![Files view with notes in the gutter](docs/site/img/files.svg)
+![Files view: noted code tinted yellow, the note under the cursor in the bottom border](docs/site/img/files.svg)
 
 ## Install
 
@@ -58,6 +58,10 @@ The compiled prompt looks like this:
    replace the loop with an iterator chain
 ````
 
+Noted ("tacked") code is easy to spot: it's tinted light yellow, with `●`/`│`
+markers in the gutter, and the bottom border of the code pane shows the start
+of the note under the cursor. Press `Enter` there to read the whole note.
+
 Notes follow the code: when lines are inserted above a note or the code moves
 within the file, the note moves with it. If the annotated code is gone, the
 note is marked stale (`⚠`) and left out of the prompt with a warning.
@@ -66,10 +70,10 @@ note is marked stale (`⚠`) and left out of the prompt with a warning.
 
 | | |
 |---|---|
-| ![Note popup](docs/site/img/note.svg) | ![Diff view](docs/site/img/diff.svg) |
-| **Note popup**: location, code and target session (`Tab` cycles). | **Diff view**: notes attach to new-side lines. |
-
-![Session view](docs/site/img/session.svg)
+| ![Note popup](docs/site/img/note.svg) | ![Note viewer](docs/site/img/view-note.svg) |
+| **Note popup**: location, code and target session (`Tab` cycles). | **Note viewer**: `Enter` on a noted line shows the whole note. |
+| ![Diff view](docs/site/img/diff.svg) | ![Session view](docs/site/img/session.svg) |
+| **Diff view**: notes attach to new-side lines. | **Session view**: the prompt, note by note, in order. |
 
 ## Keys
 
@@ -80,6 +84,7 @@ to terminal apps. Press `?` in the app for the full list.
 |---|---|
 | `1` / `2` / `3` | Files / Diff / Session view |
 | `Ctrl+N` / `Ctrl+O` | New session / pick the active session |
+| `Shift+Tab` | Switch to the next session |
 | `Ctrl+P` / `Ctrl+F` | Find a file / search code in the repo |
 | `Tab` | Switch between the list and the code |
 | `j` `k` `h` `l`, arrows, `gg` `G`, `Ctrl+D` `Ctrl+U`, `0` `$` | Move |
@@ -89,10 +94,12 @@ to terminal apps. Press `?` in the app for the full list.
 | `v` / `V` / Shift+arrows / drag | Select characters / lines |
 | `c` | Note the selection (or the line); on a noted line, edit that note |
 | `d` | Delete the note on this line (asks first) |
+| `Enter` | Show the whole note on this line |
 | `r` | Reload the diff |
 | `y` (Session view) | Copy the compiled prompt |
 | `e` / `d` / `J` `K` (Session view) | Edit / delete / reorder notes |
 | `q` | Quit (everything is saved as you go) |
+| Mouse | Click the tree to open files, click or drag in the code, scroll with the wheel |
 
 In the note popup, `Enter` saves. For a newline, type `\` and press `Enter`,
 or use `Shift+Enter` in terminals that report it (Ghostty, Kitty, WezTerm,

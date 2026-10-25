@@ -516,6 +516,7 @@ mod screenshots {
     use crate::highlight::load_theme;
     use crate::store::MemStore;
     use std::fmt::Write as _;
+    use tuirealm::component::Component;
     use tuirealm::ratatui::buffer::Buffer;
     use tuirealm::ratatui::layout::Size;
     use tuirealm::ratatui::style::{Color, Modifier};
@@ -593,8 +594,36 @@ mod screenshots {
         out + "</svg>\n"
     }
 
+    /// Folders to show open in the tree (the tree's own state isn't in the model).
+    const OPEN: &[&str] = &["src/", "scripts/"];
+
     fn shot(model: &mut Model, opened: Option<Popup>, name: &str) {
         let mut app = mount(&model.root, EventListenerCfg::default()).unwrap();
+        let name_ = model
+            .root
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+        let mut tree = FileTree::new(build_tree(&name_, &walk(&model.root)));
+        for folder in OPEN {
+            tree.attr(
+                Attribute::Custom(tui_realm_treeview::TREE_INITIAL_NODE),
+                AttrValue::String(folder.to_string()),
+            );
+            tree.perform(tuirealm::command::Cmd::Custom(
+                tui_realm_treeview::TREE_CMD_OPEN,
+            ));
+        }
+        // Highlight the open file, as after picking it in the tree.
+        if let Some(file) = &model.file {
+            let id = file.path.display().to_string();
+            tree.attr(
+                Attribute::Custom(tui_realm_treeview::TREE_INITIAL_NODE),
+                AttrValue::String(id),
+            );
+        }
+        app.remount(Id::FileTree, Box::new(tree), vec![]).unwrap();
         let mut term = TestTerminalAdapter::new(Size::new(SIZE.0, SIZE.1)).unwrap();
         sync(model, &mut app, opened, true).unwrap();
         let done = term.draw(|f| draw(&mut app, model, f)).unwrap();
@@ -653,6 +682,11 @@ mod screenshots {
         shot(&mut m, Some(Popup::Note), "note");
         m.update(Msg::ClosePopup);
         m.update(Msg::ClearSelection);
+
+        // Enter on a tacked line: the whole note.
+        m.update(Msg::ViewNote);
+        shot(&mut m, None, "view-note");
+        m.update(Msg::ClosePopup);
 
         m.update(Msg::ShowView(View::Diff));
         m.update(Msg::ToggleFocus);

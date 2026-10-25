@@ -38,8 +38,9 @@ tackline
    (where it keeps your sessions) to `.gitignore`. Press :kbd[y] to add it, or :kbd[n]; it won't
    ask again either way.
 
-3. **Open a file.** Move through the tree with :kbd[j] and :kbd[k], open folders and files with
-   :kbd[Enter]. :kbd[Tab] moves between the tree and the code. :kbd[Ctrl+P] finds a file by name.
+3. **Open a file.** Click it in the tree, or move with :kbd[j] and :kbd[k] and open folders and
+   files with :kbd[Enter]. :kbd[Tab] moves between the tree and the code. :kbd[Ctrl+P] finds a file
+   by name.
 
 4. **Select some code.** Press :kbd[V] and move down with :kbd[j] to select whole lines, or hold
    :kbd[Shift] and use the arrow keys, or drag with the mouse.

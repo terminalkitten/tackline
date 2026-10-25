@@ -66,6 +66,8 @@ note's instruction, cut short with `…` when it doesn't fit:
 To read the whole note, press :kbd[Enter] on a tacked line. A popup shows its location, its
 session and the full text; from there :kbd[e] edits it, :kbd[d] deletes it and :kbd[Esc] closes it.
 
+::image[The note viewer]{src="../img/view-note.svg"}
+
 Files with notes in the active session get a `●` in the file tree.
 
 ## Edit a note
