@@ -9,6 +9,8 @@ pub fn walk(root: &Path) -> Vec<(PathBuf, bool)> {
         .hidden(false)
         // Git's and tackline's own data aren't part of the code.
         .filter_entry(|e| e.file_name() != ".git" && e.file_name() != crate::store::DATA_DIR)
+        // Same order on every OS (directory listing order isn't).
+        .sort_by_file_name(|a, b| a.cmp(b))
         .build()
         .filter_map(Result::ok)
         .filter(|e| e.depth() > 0)
