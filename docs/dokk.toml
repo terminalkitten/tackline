@@ -20,8 +20,8 @@ items = ["index.md", "getting-started.md", "workflow.md"]
 
 [[sidebar]]
 label = "Guides"
-items = ["guides/notes.md", "guides/sessions.md", "guides/diff.md", "guides/search.md"]
+items = ["guides/notes.md", "guides/sessions.md", "guides/diff.md", "guides/search.md", "guides/web.md"]
 
 [[sidebar]]
 label = "Reference"
-items = ["reference/keys.md", "reference/cli.md", "reference/data.md", "reference/terminals.md", "reference/themes.md"]
+items = ["reference/keys.md", "reference/cli.md", "reference/data.md", "reference/terminals.md", "reference/themes.md", "reference/api.md"]

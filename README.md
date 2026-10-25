@@ -79,6 +79,19 @@ note is marked stale (`⚠`) and left out of the prompt with a warning.
 | ![Diff view](docs/site/img/diff.svg) | ![Session view](docs/site/img/session.svg) |
 | **Diff view**: notes attach to new-side lines. | **Session view**: the prompt, note by note, in order. |
 
+## In the browser
+
+```sh
+tackline serve
+```
+
+The same tool in your browser, for people who'd rather click than learn keys: open files, select
+lines, write notes, copy the prompt. It runs on `127.0.0.1` only and works on the same files as
+the terminal app. A small JSON API comes with it. See the
+[Web version guide](docs/site/guides/web.md).
+
+![The web version](docs/site/img/web-files.png)
+
 ## Keys
 
 Everything is Ctrl or plain keys: macOS terminals don't pass Cmd shortcuts on

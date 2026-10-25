@@ -19,6 +19,14 @@ Opens the app, on the Diff view when there are uncommitted changes, otherwise on
 | `--base <rev>`   | Diff against `merge-base(HEAD, <rev>)` instead of `HEAD`: a branch, tag or commit, e.g. `upstream/main`. An unknown revision stops with git's error.            |
 | `--theme <name>` | Syntax highlighting theme. Without it, tackline picks `base16-ocean.dark`, or `InspiredGitHub` on a light terminal. An unknown name lists the available themes. |
 
+## tackline serve
+
+```text
+tackline serve [--port <PORT>] [--no-open]
+```
+
+Opens tackline in the browser, on this machine only. See [Web version](../guides/web.md).
+
 ## tackline export
 
 ```text
