@@ -42,6 +42,7 @@ const KEYS: &[(&str, &str)] = &[
     ("Session: y", "Copy the compiled prompt"),
     ("Session: e / d", "Edit / delete the note"),
     ("Session: J / K", "Move the note down / up"),
+    ("Session: r", "Rename the session"),
     ("?", "This help"),
     ("q", "Quit"),
 ];

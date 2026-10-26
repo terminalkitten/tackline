@@ -57,6 +57,8 @@ pub enum Id {
 pub enum Popup {
     Help,
     NewSession,
+    /// `r` in the Session view: the active session's name.
+    RenameSession,
     SessionPicker,
     Note,
     ConfirmDelete,
@@ -121,6 +123,8 @@ pub enum Msg {
     ClosePopup,
     /// Create a session with this name and make it active.
     NewSession(String),
+    /// Give the active session this name.
+    RenameSession(String),
     /// Make the session at this index (in load order) active.
     PickSession(usize),
     /// Shift+Tab: make the next session active (wrapping).
@@ -360,7 +364,7 @@ impl Model {
     pub fn active_id(&self) -> Id {
         match (self.popup, self.view, self.focus) {
             (Some(Popup::Help), ..) => Id::Help,
-            (Some(Popup::NewSession), ..) => Id::NameInput,
+            (Some(Popup::NewSession | Popup::RenameSession), ..) => Id::NameInput,
             (Some(Popup::SessionPicker), ..) => Id::SessionPicker,
             (Some(Popup::Note), ..) => Id::NoteText,
             (Some(Popup::ConfirmDelete | Popup::Gitignore), ..) => Id::Confirm,
@@ -414,6 +418,9 @@ impl Model {
             Msg::OpenPopup(Popup::Finder) => self.open_picker(PickerKind::Files),
             Msg::OpenPopup(Popup::Search) => self.open_picker(PickerKind::Code),
             Msg::OpenPopup(Popup::FindInFile | Popup::GotoLine) if self.lines().is_none() => {}
+            Msg::OpenPopup(Popup::RenameSession) if self.active_session().is_none() => {
+                self.toast(ToastKind::Warning, "No active session: Ctrl+N creates one")
+            }
             Msg::OpenPopup(popup) => self.popup = Some(popup),
             Msg::ClosePopup => {
                 self.popup = None;
@@ -422,6 +429,7 @@ impl Model {
                 self.note_after_new_session = false;
             }
             Msg::NewSession(name) => self.new_session(&name),
+            Msg::RenameSession(name) => self.rename_session(&name),
             Msg::PickSession(i) => self.pick_session(i),
             Msg::NextSession => self.next_session(),
             Msg::NoteUp => self.note_cursor = self.note_cursor.saturating_sub(1),

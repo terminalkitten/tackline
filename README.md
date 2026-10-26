@@ -170,6 +170,7 @@ to terminal apps. Press `?` in the app for the full list.
 | `r` | Reload the diff |
 | `y` (Session view) | Copy the compiled prompt |
 | `e` / `d` / `J` `K` (Session view) | Edit / delete / reorder notes |
+| `r` (Session view) | Rename the session |
 | `q` | Quit (everything is saved as you go) |
 | Mouse | Click the tree to open files, click or drag in the code, scroll with the wheel |
 

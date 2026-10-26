@@ -70,6 +70,7 @@ so tackline never uses them. Press :kbd[?] in the app for a quick list.
 | :kbd[d]           | Delete the note (asks first) |
 | :kbd[J] / :kbd[K] | Move the note down / up      |
 | :kbd[y]           | Copy the compiled prompt     |
+| :kbd[r]           | Rename the session           |
 
 ## Find and search
 

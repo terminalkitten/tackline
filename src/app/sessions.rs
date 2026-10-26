@@ -1,4 +1,4 @@
-//! Session updates: create, pick, list notes, jump to one, copy the prompt.
+//! Session updates: create, rename, pick, list notes, jump to one, copy the prompt.
 
 use std::path::Path;
 
@@ -33,6 +33,25 @@ impl Model {
         if std::mem::take(&mut self.note_after_new_session) {
             self.add_note();
         }
+    }
+
+    pub(super) fn rename_session(&mut self, name: &str) {
+        let name = name.trim();
+        if name.is_empty() {
+            return self.toast(ToastKind::Warning, "A session needs a name");
+        }
+        let Some(i) = self.active_index() else {
+            return;
+        };
+        // The file keeps its name, so `tackline export <old-slug>` still works.
+        self.sessions[i].name = name.to_string();
+        let result = self.store.save_session(&self.sessions[i]);
+        self.saved(result);
+        self.popup = None;
+        self.toast(
+            ToastKind::Info,
+            format!("Renamed the session to \"{name}\""),
+        );
     }
 
     pub(super) fn pick_session(&mut self, index: usize) {
@@ -199,6 +218,29 @@ mod tests {
     fn note(root: &Path, file: &str, span: Span, text: &str) -> Note {
         let src = fs::read_to_string(root.join(file)).unwrap();
         Note::new(file.into(), span, capture(span, &src).unwrap(), text)
+    }
+
+    #[test]
+    fn rename_the_active_session() {
+        let repo = fixture_repo();
+        let mut m = model(repo.path());
+        m.update(Msg::OpenPopup(Popup::RenameSession));
+        assert_eq!(m.popup, None, "nothing to rename yet");
+
+        m.update(Msg::NewSession("Perf".into()));
+        m.update(Msg::OpenPopup(Popup::RenameSession));
+        m.update(Msg::RenameSession("  ".into()));
+        assert_eq!(
+            m.popup,
+            Some(Popup::RenameSession),
+            "empty name keeps the popup open"
+        );
+        m.update(Msg::RenameSession(" Search speedup ".into()));
+        assert_eq!(m.popup, None);
+        assert_eq!(m.active_session().unwrap().name, "Search speedup");
+        let saved = m.store.load_sessions().unwrap();
+        assert_eq!(saved.len(), 1, "renamed in place, not copied");
+        assert_eq!(saved[0].name, "Search speedup");
     }
 
     #[test]

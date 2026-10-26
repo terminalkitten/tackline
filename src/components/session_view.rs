@@ -9,7 +9,7 @@ use tuirealm::ratatui::text::{Line, Span};
 
 use super::code_view::{CodeProps, Rows};
 use super::{global_key, key, mouse};
-use crate::app::Msg;
+use crate::app::{Msg, Popup};
 use crate::model::Span as NoteSpan;
 
 /// Snippet lines shown per note; the rest collapse into "… N more lines".
@@ -115,6 +115,7 @@ impl AppComponent<Msg, NoUserEvent> for SessionView {
             (Key::Up | Key::Char('k'), false) => Some(Msg::NoteUp),
             (Key::Enter, false) => Some(Msg::JumpToNote),
             (Key::Char('y'), false) => Some(Msg::CopyPrompt),
+            (Key::Char('r'), false) => Some(Msg::OpenPopup(Popup::RenameSession)),
             (Key::Char('e'), false) => Some(Msg::EditNote),
             (Key::Char('d'), false) => Some(Msg::AskDeleteNote),
             (Key::Char('J'), false) => Some(Msg::MoveNote(1)),

@@ -43,6 +43,7 @@ lines of its code and its instruction.
 | :kbd[d]           | Delete the note (asks first)                                                               |
 | :kbd[J] / :kbd[K] | Move the note down / up: this is the order in the prompt                                   |
 | :kbd[y]           | Copy the compiled prompt                                                                   |
+| :kbd[r]           | Rename the session                                                                         |
 
 The locations show where each note is *now*: if its code moved, `L88-95` follows it. Stale notes
 show `⚠ stale`.

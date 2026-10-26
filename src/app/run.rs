@@ -188,11 +188,13 @@ fn any(value: impl PropBound) -> AttrValue {
 /// that just opened and starts fresh.
 fn sync(model: &mut Model, app: &mut App, opened: Option<Popup>, shift_enter: bool) -> Result<()> {
     match opened {
-        Some(Popup::NewSession) => app.attr(
-            &Id::NameInput,
-            Attribute::Value,
-            AttrValue::String(String::new()),
-        )?,
+        Some(Popup::NewSession) => {
+            app.remount(Id::NameInput, Box::new(NameInput::default()), vec![])?
+        }
+        Some(Popup::RenameSession) => {
+            let name = model.active_session().map(|s| s.name.as_str());
+            app.remount(Id::NameInput, Box::new(NameInput::new(name)), vec![])?;
+        }
         Some(Popup::SessionPicker) => {
             let active = model.state.active_session_id.as_deref();
             let index = model
@@ -322,7 +324,9 @@ fn draw(app: &mut App, model: &Model, f: &mut Frame) {
     app.view(&Id::StatusBar, f, areas.status);
     let popup = match model.popup {
         Some(Popup::Help) => Some((Id::Help, help_popup::area(screen))),
-        Some(Popup::NewSession) => Some((Id::NameInput, centered(screen, 44.min(screen.width), 3))),
+        Some(Popup::NewSession | Popup::RenameSession) => {
+            Some((Id::NameInput, centered(screen, 44.min(screen.width), 3)))
+        }
         Some(Popup::SessionPicker) => {
             let height =
                 (model.sessions.len() as u16 + 2).clamp(3, screen.height.saturating_sub(4));
@@ -452,6 +456,13 @@ mod tests {
 
         m.update(Msg::PickSession(0));
         insta::assert_snapshot!("frame_session_empty_with_toast", frame(&mut m, None));
+
+        m.update(Msg::DismissToast);
+        m.update(Msg::OpenPopup(Popup::RenameSession));
+        insta::assert_snapshot!(
+            "frame_rename_session",
+            frame(&mut m, Some(Popup::RenameSession))
+        );
     }
 
     #[test]
