@@ -137,6 +137,12 @@ tr.note-row.stale .note-dot { color: var(--stale); }
 
 /* ---- session ---- */
 .session-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.session-title { display: flex; align-items: center; gap: .9rem; flex-wrap: wrap; min-width: 0; }
+.rename summary { cursor: pointer; color: var(--accent); list-style: none; font-size: .85rem; }
+.rename summary::-webkit-details-marker { display: none; }
+.rename[open] summary, .session-title:has(.rename[open]) h1 { display: none; }
+.rename form { display: flex; gap: .4rem; }
+.rename input { min-width: 16rem; }
 .notes { padding-left: 1.4rem; }
 .notes li { margin: 1rem 0 1.6rem; }
 .notes li::marker { color: var(--muted); }

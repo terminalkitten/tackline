@@ -5,7 +5,16 @@
 <main class="session">
   {% if let Some(name) = name %}
   <div class="session-head">
-    <h1>{{ name }}</h1>
+    <div class="session-title">
+      <h1>{{ name }}</h1>
+      <details class="rename">
+        <summary>Rename</summary>
+        <form action="/sessions/{{ id }}/rename" method="post">
+          <input name="name" value="{{ name }}" required aria-label="Session name">
+          <button>Save</button>
+        </form>
+      </details>
+    </div>
     <button type="button" class="primary" data-copy-prompt {% if notes.is_empty() %}disabled{% endif %}>Copy prompt</button>
   </div>
   {% for w in warnings %}<p class="warn">⚠ {{ w }}</p>{% endfor %}

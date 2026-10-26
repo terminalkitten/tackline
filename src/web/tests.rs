@@ -375,7 +375,21 @@ fn session_page_edit_move_reorder_delete_and_prompt() {
             Some(&format!("id={a}&return=%2F")),
         )
         .await;
-        assert_eq!(store.load_state().unwrap().active_session_id, Some(a));
+        assert_eq!(
+            store.load_state().unwrap().active_session_id,
+            Some(a.clone())
+        );
+
+        // Renaming: the Session page offers it, an empty name is refused.
+        let (_, _, page) = send(&ctx, "GET", "/session", None).await;
+        assert!(page.contains(&format!("/sessions/{a}/rename")));
+        let rename = format!("/sessions/{a}/rename");
+        let (_, location, _) = send(&ctx, "POST", &rename, Some("name=+")).await;
+        assert!(location.contains("needs+a+name") || location.contains("needs%20a%20name"));
+        let (_, location, _) = send(&ctx, "POST", &rename, Some("name=Search+speedup")).await;
+        assert!(location.starts_with("/session?msg=Renamed"));
+        let all = store.load_sessions().unwrap();
+        assert_eq!((all.len(), all[0].name.as_str()), (2, "Search speedup"));
     });
 }
 

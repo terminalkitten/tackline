@@ -563,6 +563,7 @@ pub struct NoteItem {
 #[template(path = "session.html")]
 struct SessionPage {
     nav: Nav,
+    id: String,
     name: Option<String>,
     notes: Vec<NoteItem>,
     prompt: String,
@@ -575,6 +576,7 @@ pub async fn session(State(ctx): State<Ctx>, Query(q): Query<PageQuery>) -> Resp
     let Some(i) = data.active() else {
         return render(SessionPage {
             nav,
+            id: String::new(),
             name: None,
             notes: Vec::new(),
             prompt: String::new(),
@@ -621,6 +623,7 @@ pub async fn session(State(ctx): State<Ctx>, Query(q): Query<PageQuery>) -> Resp
     let (prompt, warnings) = compile(session, &ctx.root);
     render(SessionPage {
         nav,
+        id: session.id.clone(),
         name: Some(session.name.clone()),
         notes,
         prompt,
@@ -940,6 +943,33 @@ pub async fn new_session(State(ctx): State<Ctx>, Form(form): Form<NewSession>) -
     data.save(data.sessions.len() - 1);
     let _ = data.store.save_state(&data.state);
     back(&form.back, Some(&format!("Created session \"{name}\"")))
+}
+
+#[derive(Deserialize)]
+pub struct Rename {
+    name: String,
+}
+
+pub async fn rename_session(
+    State(ctx): State<Ctx>,
+    UrlPath(id): UrlPath<String>,
+    Form(form): Form<Rename>,
+) -> Response {
+    let name = form.name.trim();
+    if name.is_empty() {
+        return back("/session", Some("A session needs a name"));
+    }
+    let mut data = Data::load(&ctx);
+    let Some(i) = data.sessions.iter().position(|s| s.id == id) else {
+        return back("/session", Some("That session is gone"));
+    };
+    // The file keeps its name, so `tackline export <old-slug>` still works.
+    data.sessions[i].name = name.to_string();
+    data.save(i);
+    back(
+        "/session",
+        Some(&format!("Renamed the session to \"{name}\"")),
+    )
 }
 
 #[derive(Deserialize)]

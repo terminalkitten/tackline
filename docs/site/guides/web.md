@@ -52,7 +52,7 @@ into your agent. **Show the prompt** previews it.
 ::image[The Session tab]{src="../img/web-session.png"}
 
 Switch the active session with the **Session** menu at the top, or make a new one with
-**New session**.
+**New session**. **Rename** next to the session's name on the Session tab changes it.
 
 ## Options
 

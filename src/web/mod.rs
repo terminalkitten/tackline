@@ -83,6 +83,7 @@ pub fn router(ctx: Ctx) -> Router {
         .route("/notes/{id}/move", post(pages::move_note))
         .route("/sessions", post(pages::new_session))
         .route("/sessions/active", post(pages::activate_session))
+        .route("/sessions/{id}/rename", post(pages::rename_session))
         .route("/api/sessions", get(api::sessions))
         .route("/api/sessions/{id}", get(api::session))
         .route("/api/sessions/{id}/prompt", get(api::prompt))
