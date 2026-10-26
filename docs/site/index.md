@@ -18,7 +18,7 @@ anything else that takes a prompt: paste it, or hand it over from the shell
 ::linkbutton[crates.io]{href="https://crates.io/crates/tackline" variant="secondary"}
 ::linkbutton[GitHub]{href="https://github.com/terminalkitten/tackline" variant="secondary"}
 
-::image[The Files view: noted code tinted yellow, the note under the cursor in the bottom border]{src="img/files.svg"}
+::image[tackline in ten seconds: select code, add a note, review the session, export the prompt]{src="img/demo.gif"}
 
 ## Why it exists
 
@@ -49,6 +49,8 @@ prompt.
 3. **Press :kbd[3]** to review the session, then **:kbd[y]** to copy the compiled prompt and paste
    it into your agent, or hand it over from the shell.
 :::
+
+::image[The Files view: noted code tinted yellow, the note under the cursor in the bottom border]{src="img/files.svg"}
 
 ::::cards
 :::card[Getting started]{href="getting-started.md"}
