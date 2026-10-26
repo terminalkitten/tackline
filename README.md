@@ -217,6 +217,7 @@ cargo fmt --check
 cargo clippy --all-targets -- -D warnings
 cargo test
 cargo test screenshots -- --ignored   # redraw docs/site/img/*.svg
+for f in note session files diff; do rsvg-convert -z 2 docs/site/img/$f.svg -o docs/site/img/$f.png; done
 cargo test theme_gallery -- --ignored # redraw the theme gallery and its docs page
 ```
 
