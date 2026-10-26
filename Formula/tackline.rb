@@ -1,25 +1,25 @@
 class Tackline < Formula
   desc "Point at code, write what your coding agent should do there, and hand it one Markdown prompt. Works with Claude Code, Codex, opencode, aider, Cursor and any agent that takes a prompt."
   homepage "https://terminalkitten.github.io/tackline/"
-  version "0.1.2"
+  version "0.1.3"
   if OS.mac?
     if Hardware::CPU.arm?
-      url "https://github.com/terminalkitten/tackline/releases/download/v0.1.2/tackline-aarch64-apple-darwin.tar.xz"
-      sha256 "2bf825222c07cc2dc9fc9470e9a9487decf246ed4e4b88b26140f9155cd3ca1f"
+      url "https://github.com/terminalkitten/tackline/releases/download/v0.1.3/tackline-aarch64-apple-darwin.tar.xz"
+      sha256 "8ddeafd6885bedeab50f4fdcdb78447d8f4b1b28f8c7b3597b920fe5fbd4967b"
     end
     if Hardware::CPU.intel?
-      url "https://github.com/terminalkitten/tackline/releases/download/v0.1.2/tackline-x86_64-apple-darwin.tar.xz"
-      sha256 "b713cbfd93cb72598470cccb93f75076506ff036b985ab1a82ed6d6d1b9ece39"
+      url "https://github.com/terminalkitten/tackline/releases/download/v0.1.3/tackline-x86_64-apple-darwin.tar.xz"
+      sha256 "e6f1e43baf244e6d6955ad796c504abaa5fddafc49a1101ead9715317fc8e7d4"
     end
   end
   if OS.linux?
     if Hardware::CPU.arm?
-      url "https://github.com/terminalkitten/tackline/releases/download/v0.1.2/tackline-aarch64-unknown-linux-gnu.tar.xz"
-      sha256 "078d520c00cf491911bd0f201dd8159d0fe4f264b4b161ddf1c573170b411103"
+      url "https://github.com/terminalkitten/tackline/releases/download/v0.1.3/tackline-aarch64-unknown-linux-gnu.tar.xz"
+      sha256 "799486171ac76293207d1f682bbb2ad3f076766ee566e8eea656eec2ada9895e"
     end
     if Hardware::CPU.intel?
-      url "https://github.com/terminalkitten/tackline/releases/download/v0.1.2/tackline-x86_64-unknown-linux-gnu.tar.xz"
-      sha256 "2debb8c474684d7bcdcbaa9e58b6c0a0086df298eff46d1f3f587494cfc392a1"
+      url "https://github.com/terminalkitten/tackline/releases/download/v0.1.3/tackline-x86_64-unknown-linux-gnu.tar.xz"
+      sha256 "46ba50dbea925c9f30a39e1974fc1b69ef039e77ed33ebb2bb7572b997e0643c"
     end
   end
   license "MIT"
