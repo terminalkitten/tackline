@@ -44,7 +44,14 @@ impl Model {
         }
         let selected = self.diff.get(self.diff_selected).map(|f| f.path.clone());
         match git::diff(&self.root, self.base.as_deref()) {
-            Ok(files) => self.diff = files,
+            Ok(mut files) => {
+                // Tree order: a folder's own files, then its subfolders.
+                files.sort_by(|a, b| {
+                    (a.path.parent(), a.path.file_name())
+                        .cmp(&(b.path.parent(), b.path.file_name()))
+                });
+                self.diff = files;
+            }
             Err(e) => {
                 self.diff.clear();
                 self.toast(
@@ -131,6 +138,11 @@ impl Model {
         }
     }
 
+    /// The changed files as a tree (`self.diff` is in tree order).
+    pub(super) fn diff_tree(&self) -> Vec<TreeRow> {
+        tree_rows(self.diff.iter().map(|f| f.path.as_path()))
+    }
+
     /// The changed-files list.
     pub fn diff_list_props(&self) -> CodeProps {
         let focused = self.active_id() == Id::DiffFiles;
@@ -142,15 +154,24 @@ impl Model {
                 ..CodeProps::message(&title, "No changes")
             };
         }
-        let rows = self
-            .diff
+        let tree = self.diff_tree();
+        let selected_row = tree
             .iter()
-            .enumerate()
-            .map(|(i, f)| {
+            .position(|r| r.file == Some(self.diff_selected))
+            .unwrap_or(0);
+        let rows = tree
+            .iter()
+            .map(|row| {
+                let indent = "  ".repeat(row.depth);
+                let Some(i) = row.file else {
+                    return Line::from(format!("{indent}{}/ ▼", row.name));
+                };
+                let f = &self.diff[i];
                 let line = Line::from(vec![
+                    Span::raw(indent),
                     Span::styled(format!("+{} ", f.added), Style::new().fg(Color::Green)),
                     Span::styled(format!("-{} ", f.removed), Style::new().fg(Color::Red)),
-                    Span::raw(f.path.display().to_string()),
+                    Span::raw(row.name.clone()),
                 ]);
                 match (i == self.diff_selected, focused) {
                     (true, true) => line.style(Style::new().add_modifier(Modifier::REVERSED)),
@@ -172,14 +193,102 @@ impl Model {
             title,
             rows,
             focused,
-            scroll: self.diff_selected.saturating_sub(height.saturating_sub(1)) as u16,
+            scroll: selected_row.saturating_sub(height.saturating_sub(1)) as u16,
             footer: None,
         }
     }
 }
 
+/// A row of the changed-files tree: a folder, or the file at this index.
+pub(super) struct TreeRow {
+    pub depth: usize,
+    pub name: String,
+    pub file: Option<usize>,
+}
+
+/// Folder rows above the files in them, for paths in tree order. Folders
+/// are always open.
+fn tree_rows<'a>(paths: impl Iterator<Item = &'a std::path::Path>) -> Vec<TreeRow> {
+    let mut rows = Vec::new();
+    let mut open: Vec<String> = Vec::new();
+    for (i, path) in paths.enumerate() {
+        let dirs: Vec<String> = path
+            .parent()
+            .into_iter()
+            .flat_map(|p| p.components())
+            .map(|c| c.as_os_str().to_string_lossy().into_owned())
+            .collect();
+        let same = open.iter().zip(&dirs).take_while(|(a, b)| a == b).count();
+        for (depth, name) in dirs.iter().enumerate().skip(same) {
+            rows.push(TreeRow {
+                depth,
+                name: name.clone(),
+                file: None,
+            });
+        }
+        open = dirs;
+        rows.push(TreeRow {
+            depth: open.len(),
+            name: path
+                .file_name()
+                .map_or_else(String::new, |n| n.to_string_lossy().into_owned()),
+            file: Some(i),
+        });
+    }
+    rows
+}
+
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn click_in_the_tree() {
+        let repo = fixture_repo();
+        fs::write(repo.path().join("src/matcher.rs"), "changed\n").unwrap();
+        let mut m = model(repo.path(), None);
+        m.update(Msg::ShowView(View::Diff));
+        // Rows (y = 1 + row): src/, matcher.rs, web/, app.ts.
+        let path = |m: &Model| m.diff[m.diff_selected].path.clone();
+        m.update(Msg::Click { col: 4, row: 1 + 3 });
+        assert_eq!(path(&m), Path::new("web/app.ts"));
+        m.update(Msg::Click { col: 4, row: 1 + 2 });
+        assert_eq!(
+            path(&m),
+            Path::new("web/app.ts"),
+            "a folder row does nothing"
+        );
+        m.update(Msg::Click { col: 4, row: 1 + 1 });
+        assert_eq!(path(&m), Path::new("src/matcher.rs"));
+    }
+
+    #[test]
+    fn tree_rows_put_folders_above_their_files() {
+        let paths = [
+            "README.md",
+            "src/lib.rs",
+            "src/app/mod.rs",
+            "src/app/run.rs",
+            "web/app.ts",
+        ];
+        let rows = super::tree_rows(paths.iter().map(std::path::Path::new));
+        let shown: Vec<_> = rows
+            .iter()
+            .map(|r| (r.depth, r.name.as_str(), r.file))
+            .collect();
+        assert_eq!(
+            shown,
+            [
+                (0, "README.md", Some(0)),
+                (0, "src", None),
+                (1, "lib.rs", Some(1)),
+                (1, "app", None),
+                (2, "mod.rs", Some(2)),
+                (2, "run.rs", Some(3)),
+                (0, "web", None),
+                (1, "app.ts", Some(4)),
+            ]
+        );
+    }
+
     use crate::app::{Model, Motion, Msg, Popup, SelectionKind, ToastKind};
     use crate::highlight::load_theme;
     use crate::model::{Span, View};

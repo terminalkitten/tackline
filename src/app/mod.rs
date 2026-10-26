@@ -611,8 +611,12 @@ impl Model {
                 self.focus = Focus::Tree;
                 let scroll = self.diff_list_props().scroll as usize;
                 if let Some(r) = row.checked_sub(areas.tree.y + 1) {
-                    let i = r as usize + scroll;
-                    if i < self.diff.len() {
+                    // A file row; folder rows do nothing.
+                    let file = self
+                        .diff_tree()
+                        .get(r as usize + scroll)
+                        .and_then(|r| r.file);
+                    if let Some(i) = file {
                         self.diff_selected = i;
                         self.open_diff();
                     }

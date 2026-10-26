@@ -11,8 +11,8 @@ the next round of notes.
 
 ## Reading the diff
 
-The left pane lists the changed files with their added and removed line counts. The right pane
-shows the selected file as a unified diff:
+The left pane shows the changed files as a tree, grouped in their folders, with their added and
+removed line counts; :kbd[j] / :kbd[k] step from file to file. The right pane shows the selected file as a unified diff:
 
 - Two line-number columns: the old line and the new line.
 - `+` lines on a green background were added, `-` lines on red were removed.
