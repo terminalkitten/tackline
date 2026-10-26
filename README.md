@@ -14,7 +14,8 @@ else that takes a prompt.
 
 [Docs](https://terminalkitten.github.io/tackline/) ·
 [crates.io](https://crates.io/crates/tackline) ·
-[GitHub](https://github.com/terminalkitten/tackline)
+[GitHub](https://github.com/terminalkitten/tackline) ·
+[Discussions](https://github.com/terminalkitten/tackline/discussions)
 
 ## Install
 
@@ -209,6 +210,13 @@ On first run tackline offers to add `.tackline/` to `.gitignore`.
   in your local clipboard. In tmux, enable `set -g set-clipboard on`.
 - **Speed**: rendering is done by your terminal; GPU-accelerated terminals
   (Ghostty, WezTerm, Kitty, Alacritty, iTerm2) scroll smoothest.
+
+## Feedback
+
+Ideas are very welcome, especially about how tackline fits your workflow: which agent you use,
+how you hand it the prompt, what slows you down. Start a thread in
+[Discussions](https://github.com/terminalkitten/tackline/discussions), or open an
+[issue](https://github.com/terminalkitten/tackline/issues) for a bug.
 
 ## Development
 
