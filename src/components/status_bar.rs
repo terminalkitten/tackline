@@ -8,11 +8,12 @@ use tuirealm::ratatui::text::Span;
 use crate::app::Msg;
 use crate::model::{View, note_count};
 
-/// View, active session, file and cursor, key hints.
+/// View, active session, file and cursor, key hints, branch and blame.
 pub fn spans(
     view: View,
     session: Option<(&str, usize)>,
     location: Option<String>,
+    git: Option<String>,
 ) -> Vec<Span<'static>> {
     let view = match view {
         View::Files => " FILES ",
@@ -38,6 +39,10 @@ pub fn spans(
             Style::new(),
         ),
         Span::styled(" │ ? help  q quit", dim),
+        Span::styled(
+            git.map(|g| format!(" │  {g}")).unwrap_or_default(),
+            Style::new().fg(Color::Magenta),
+        ),
     ]
 }
 
@@ -74,8 +79,9 @@ mod tests {
                 View::Files,
                 Some(("perf", 3)),
                 Some("src/a.rs 2:5".into()),
+                Some("main · a1b2c3d Ann, 3d ago: fix".into()),
             )),
         );
-        insta::assert_snapshot!(render_to_string(&mut bar, Size::new(70, 1)));
+        insta::assert_snapshot!(render_to_string(&mut bar, Size::new(110, 1)));
     }
 }

@@ -15,4 +15,4 @@ expression: "frame(&mut m, None)"
 │                              ││                                              │
 │                              ││                                              │
 ╰──────────────────────────────╯╰ ● note on an added line ─────────────────────╯
- DIFF  S (1 note)  web/app.ts 4:1  │ ? help  q quit
+ DIFF  S (1 note)  web/app.ts 4:1  │ ? help  q quit │  main · uncommitted

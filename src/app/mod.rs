@@ -21,7 +21,7 @@ pub use search::{Picker, PickerKind};
 
 use crate::components::code_view::{self, CodeProps, Mark};
 use crate::components::session_view::NoteRow;
-use crate::git::{FileDiff, Row};
+use crate::git::{self, FileDiff, LineBlame, Row};
 use crate::highlight::{Highlighted, TAB};
 use crate::model::{Session, State, View};
 use crate::search::files::read_lines;
@@ -276,6 +276,10 @@ pub struct Model {
     /// `--base`: diff against `merge-base(HEAD, base)` instead of `HEAD`.
     pub base: Option<String>,
     pub diff: Vec<FileDiff>,
+    /// Current branch, refreshed with the diff.
+    pub branch: Option<String>,
+    /// Blame of a file, dropped when its mtime changes.
+    blame: Option<(PathBuf, Option<SystemTime>, Vec<Option<LineBlame>>)>,
     /// Selected file in the Diff view's list.
     pub diff_selected: usize,
     /// Which view the live code pane fields belong to (Files or Diff).
@@ -331,6 +335,8 @@ impl Model {
             git: false,
             base: None,
             diff: Vec::new(),
+            branch: None,
+            blame: None,
             diff_selected: 0,
             live: View::Files,
             stashed: Pane::default(),
@@ -772,6 +778,39 @@ impl Model {
         self.highlights
             .get(&file.key())
             .is_some_and(|(_, hl)| hl.lines.len() < end)
+    }
+
+    /// `main · a1b2c3d Ann, 3d ago: fix x` for the cursor line, or just the
+    /// branch.
+    pub fn git_label(&mut self) -> Option<String> {
+        let branch = self.branch.clone()?;
+        let line = match (self.view, &self.file) {
+            (View::Session, _) | (_, None) => None,
+            (_, Some(f)) => match &f.diff {
+                Some(rows) => rows.get(self.cursor.line).and_then(|r| r.new),
+                None => self.lines().map(|_| self.cursor.line as u32 + 1),
+            },
+        };
+        let (Some(line), Some(file)) = (line, &self.file) else {
+            return Some(branch);
+        };
+        let mtime = fs::metadata(self.root.join(&file.path))
+            .and_then(|m| m.modified())
+            .ok();
+        if !matches!(&self.blame, Some((p, t, _)) if *p == file.path && *t == mtime) {
+            // Untracked or unreadable: every line counts as uncommitted.
+            let lines = git::blame(&self.root, &file.path).unwrap_or_default();
+            self.blame = Some((file.path.clone(), mtime, lines));
+        }
+        let lines = &self.blame.as_ref().expect("just set").2;
+        let who = match lines.get(line as usize - 1) {
+            Some(Some(b)) => {
+                let age = git::ago(jiff::Timestamp::now().as_second() - b.time);
+                format!("{} {}, {age}: {}", b.commit, b.author, b.summary)
+            }
+            _ => "uncommitted".into(),
+        };
+        Some(format!("{branch} · {who}"))
     }
 
     /// `src/main.rs 12:4`, 1-based.

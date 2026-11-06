@@ -68,7 +68,12 @@ pub fn fixture_repo() -> Fixture {
     for (path, body) in FILES {
         write(dir.path(), path, body);
     }
-    let repo = git2::Repository::init(dir.path()).unwrap();
+    // Fixed branch name, whatever `init.defaultBranch` says.
+    let repo = git2::Repository::init_opts(
+        dir.path(),
+        git2::RepositoryInitOptions::new().initial_head("main"),
+    )
+    .unwrap();
     let mut index = repo.index().unwrap();
     index
         .add_all(["*"], git2::IndexAddOption::DEFAULT, None)

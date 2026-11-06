@@ -42,6 +42,7 @@ impl Model {
         if !self.git {
             return;
         }
+        self.branch = git::branch(&self.root);
         let selected = self.diff.get(self.diff_selected).map(|f| f.path.clone());
         match git::diff(&self.root, self.base.as_deref()) {
             Ok(mut files) => {

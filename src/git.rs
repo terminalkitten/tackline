@@ -154,6 +154,79 @@ pub fn diff(root: &Path, base: Option<&str>) -> Result<Vec<FileDiff>, git2::Erro
     Ok(files)
 }
 
+/// Current branch, or the short commit id when HEAD is detached.
+pub fn branch(root: &Path) -> Option<String> {
+    let repo = Repository::open(root).ok()?;
+    let head = repo.head().ok()?;
+    if head.is_branch() {
+        return head.shorthand().ok().map(str::to_string);
+    }
+    Some(head.target()?.to_string()[..7].to_string())
+}
+
+/// The commit that last changed a line.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LineBlame {
+    /// Short id.
+    pub commit: String,
+    pub author: String,
+    /// Unix seconds.
+    pub time: i64,
+    pub summary: String,
+}
+
+/// Blame for each working-tree line of `path` (relative to the repo root),
+/// `None` for uncommitted lines.
+pub fn blame(root: &Path, path: &Path) -> Result<Vec<Option<LineBlame>>, git2::Error> {
+    let repo = Repository::open(root)?;
+    let content =
+        std::fs::read(root.join(path)).map_err(|e| git2::Error::from_str(&e.to_string()))?;
+    let committed = repo.blame_file(path, None)?;
+    let blame = committed.blame_buffer(&content)?;
+    let mut lines = Vec::new();
+    for hunk in blame.iter() {
+        let id = hunk.final_commit_id();
+        let info = match id.is_zero() {
+            true => None,
+            false => {
+                let commit = repo.find_commit(id)?;
+                Some(LineBlame {
+                    commit: id.to_string()[..7].to_string(),
+                    author: commit.author().name().unwrap_or_default().to_string(),
+                    time: commit.time().seconds(),
+                    summary: commit
+                        .summary()
+                        .ok()
+                        .flatten()
+                        .unwrap_or_default()
+                        .to_string(),
+                })
+            }
+        };
+        lines.resize(hunk.final_start_line() - 1, None);
+        lines.extend(std::iter::repeat_n(info, hunk.lines_in_hunk()));
+    }
+    Ok(lines)
+}
+
+/// `3d ago` for `secs` seconds ago.
+pub fn ago(secs: i64) -> String {
+    let (n, unit) = [
+        (31_536_000, "y"),
+        (2_592_000, "mo"),
+        (86_400, "d"),
+        (3600, "h"),
+        (60, "m"),
+    ]
+    .into_iter()
+    .find(|(n, _)| secs >= *n)
+    .unwrap_or((0, ""));
+    match n {
+        0 => "just now".into(),
+        n => format!("{}{unit} ago", secs / n),
+    }
+}
+
 fn text(bytes: &[u8]) -> String {
     String::from_utf8_lossy(bytes)
         .trim_end_matches(['\n', '\r'])
@@ -214,6 +287,24 @@ mod tests {
         assert_eq!(new_lines(&rows[0..1]), None, "a hunk header");
         assert_eq!(rows_showing(&rows, 2, 3), Some((3, 4)));
         assert_eq!(rows_showing(&rows, 9, 9), None);
+    }
+
+    #[test]
+    fn blame_and_branch() {
+        let repo = crate::testutil::fixture_repo();
+        let lines = blame(repo.path(), Path::new("web/app.ts")).unwrap();
+        assert_eq!(lines.len(), 5);
+        let first = lines[0].as_ref().unwrap();
+        assert_eq!(
+            (first.author.as_str(), first.summary.as_str()),
+            ("Test", "initial")
+        );
+        assert!(lines[2].is_some());
+        assert_eq!(lines[3..], [None, None], "uncommitted lines");
+        assert!(blame(repo.path(), Path::new("nope.rs")).is_err());
+        assert_eq!(branch(repo.path()).as_deref(), Some("main"));
+        assert_eq!(ago(30), "just now");
+        assert_eq!(ago(3 * 86_400 + 5), "3d ago");
     }
 
     #[test]

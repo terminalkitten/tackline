@@ -281,10 +281,11 @@ fn sync(model: &mut Model, app: &mut App, opened: Option<Popup>, shift_enter: bo
         Attribute::Borders,
         AttrValue::Borders(borders(model.active_id() == Id::FileTree)),
     )?;
+    let (location, git) = (model.location(), model.git_label());
     let session = model
         .active_session()
         .map(|s| (s.name.as_str(), s.notes.len()));
-    let status = status_bar::spans(model.view, session, model.location());
+    let status = status_bar::spans(model.view, session, location, git);
     app.attr(&Id::StatusBar, Attribute::Text, status_bar::attr(status))?;
     app.attr(
         &Id::DiffFiles,
