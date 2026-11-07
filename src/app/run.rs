@@ -91,6 +91,9 @@ pub fn run(mut model: Model) -> Result<()> {
             }
             dirty = true;
         }
+        if model.poll_blame() {
+            dirty = true;
+        }
         if dirty {
             let opened = model.popup.filter(|_| model.popup != shown_popup);
             shown_popup = model.popup;
@@ -437,6 +440,11 @@ mod tests {
         m.update(Msg::AddNote);
         m.update(Msg::SaveNote("note on an added line".into()));
         m.update(Msg::DismissToast);
+        // Blame runs in the background: only the branch until it's back.
+        assert_eq!(m.git_label().as_deref(), Some("main"));
+        while !m.poll_blame() {
+            std::thread::yield_now();
+        }
         insta::assert_snapshot!("frame_diff_note", frame(&mut m, None));
     }
 

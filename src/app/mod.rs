@@ -9,6 +9,7 @@ mod sessions;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::mpsc;
 use std::time::{Instant, SystemTime};
 
 use tuirealm::ratatui::layout::{Constraint, Layout, Rect};
@@ -236,6 +237,12 @@ pub struct Cursor {
     pub col: usize,
 }
 
+type BlameJob = (
+    PathBuf,
+    Option<SystemTime>,
+    mpsc::Receiver<Vec<Option<LineBlame>>>,
+);
+
 pub struct Model {
     pub root: PathBuf,
     pub view: View,
@@ -280,6 +287,8 @@ pub struct Model {
     pub branch: Option<String>,
     /// Blame of a file, dropped when its mtime changes.
     blame: Option<(PathBuf, Option<SystemTime>, Vec<Option<LineBlame>>)>,
+    /// Blame being computed in the background, for this file and mtime.
+    blame_job: Option<BlameJob>,
     /// Selected file in the Diff view's list.
     pub diff_selected: usize,
     /// Which view the live code pane fields belong to (Files or Diff).
@@ -337,6 +346,7 @@ impl Model {
             diff: Vec::new(),
             branch: None,
             blame: None,
+            blame_job: None,
             diff_selected: 0,
             live: View::Files,
             stashed: Pane::default(),
@@ -781,7 +791,7 @@ impl Model {
     }
 
     /// `main · a1b2c3d Ann, 3d ago: fix x` for the cursor line, or just the
-    /// branch.
+    /// branch while the file's blame is still being computed.
     pub fn git_label(&mut self) -> Option<String> {
         let branch = self.branch.clone()?;
         let line = match (self.view, &self.file) {
@@ -794,15 +804,30 @@ impl Model {
         let (Some(line), Some(file)) = (line, &self.file) else {
             return Some(branch);
         };
-        let mtime = fs::metadata(self.root.join(&file.path))
+        let path = file.path.clone();
+        let mtime = fs::metadata(self.root.join(&path))
             .and_then(|m| m.modified())
             .ok();
-        if !matches!(&self.blame, Some((p, t, _)) if *p == file.path && *t == mtime) {
-            // Untracked or unreadable: every line counts as uncommitted.
-            let lines = git::blame(&self.root, &file.path).unwrap_or_default();
-            self.blame = Some((file.path.clone(), mtime, lines));
+        let fresh = |p: &PathBuf, t: &Option<SystemTime>| *p == path && *t == mtime;
+        if !matches!(&self.blame, Some((p, t, _)) if fresh(p, t))
+            && !matches!(&self.blame_job, Some((p, t, _)) if fresh(p, t))
+        {
+            // A job for another file finishes unseen: its send just fails.
+            let (tx, rx) = mpsc::channel();
+            let root = self.root.clone();
+            let file = path.clone();
+            std::thread::spawn(move || {
+                // Untracked or unreadable: every line counts as uncommitted.
+                let _ = tx.send(git::blame(&root, &file).unwrap_or_default());
+            });
+            self.blame_job = Some((path, mtime, rx));
         }
-        let lines = &self.blame.as_ref().expect("just set").2;
+        let Some((p, _, lines)) = &self.blame else {
+            return Some(branch);
+        };
+        if *p != self.file.as_ref()?.path {
+            return Some(branch);
+        }
         let who = match lines.get(line as usize - 1) {
             Some(Some(b)) => {
                 let age = git::ago(jiff::Timestamp::now().as_second() - b.time);
@@ -811,6 +836,25 @@ impl Model {
             _ => "uncommitted".into(),
         };
         Some(format!("{branch} · {who}"))
+    }
+
+    /// Take a finished background blame; true when one arrived.
+    pub fn poll_blame(&mut self) -> bool {
+        let Some((path, mtime, rx)) = &self.blame_job else {
+            return false;
+        };
+        match rx.try_recv() {
+            Ok(lines) => {
+                self.blame = Some((path.clone(), *mtime, lines));
+                self.blame_job = None;
+                true
+            }
+            Err(mpsc::TryRecvError::Empty) => false,
+            Err(mpsc::TryRecvError::Disconnected) => {
+                self.blame_job = None;
+                false
+            }
+        }
     }
 
     /// `src/main.rs 12:4`, 1-based.

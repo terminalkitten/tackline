@@ -176,37 +176,56 @@ pub struct LineBlame {
 }
 
 /// Blame for each working-tree line of `path` (relative to the repo root),
-/// `None` for uncommitted lines.
-pub fn blame(root: &Path, path: &Path) -> Result<Vec<Option<LineBlame>>, git2::Error> {
-    let repo = Repository::open(root)?;
-    let content =
-        std::fs::read(root.join(path)).map_err(|e| git2::Error::from_str(&e.to_string()))?;
-    let committed = repo.blame_file(path, None)?;
-    let blame = committed.blame_buffer(&content)?;
+/// `None` for uncommitted lines. Runs `git blame`: libgit2's blame is 10-20x
+/// slower on long histories. `None` for untracked files or without git.
+pub fn blame(root: &Path, path: &Path) -> Option<Vec<Option<LineBlame>>> {
+    let out = std::process::Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(["blame", "--porcelain", "--"])
+        .arg(path)
+        .output()
+        .ok()?;
+    out.status
+        .success()
+        .then(|| parse_blame(&String::from_utf8_lossy(&out.stdout)))
+}
+
+/// `git blame --porcelain` output: a `<sha> <orig> <final> [<n>]` header per
+/// line, the commit's details the first time it shows up, then the line
+/// after a tab.
+fn parse_blame(out: &str) -> Vec<Option<LineBlame>> {
+    let mut commits: std::collections::HashMap<&str, LineBlame> = Default::default();
     let mut lines = Vec::new();
-    for hunk in blame.iter() {
-        let id = hunk.final_commit_id();
-        let info = match id.is_zero() {
-            true => None,
-            false => {
-                let commit = repo.find_commit(id)?;
-                Some(LineBlame {
-                    commit: id.to_string()[..7].to_string(),
-                    author: commit.author().name().unwrap_or_default().to_string(),
-                    time: commit.time().seconds(),
-                    summary: commit
-                        .summary()
-                        .ok()
-                        .flatten()
-                        .unwrap_or_default()
-                        .to_string(),
-                })
-            }
+    let mut sha = "";
+    for l in out.lines() {
+        if l.starts_with('\t') {
+            let committed = sha.bytes().any(|b| b != b'0');
+            lines.push(committed.then(|| commits.get(sha).cloned()).flatten());
+            continue;
+        }
+        let (key, value) = l.split_once(' ').unwrap_or((l, ""));
+        if key.len() == 40 && key.bytes().all(|b| b.is_ascii_hexdigit()) {
+            sha = key;
+            commits.entry(key).or_insert_with(|| LineBlame {
+                commit: key[..7].to_string(),
+                author: String::new(),
+                time: 0,
+                summary: String::new(),
+            });
+            continue;
+        }
+        let Some(c) = commits.get_mut(sha) else {
+            continue;
         };
-        lines.resize(hunk.final_start_line() - 1, None);
-        lines.extend(std::iter::repeat_n(info, hunk.lines_in_hunk()));
+        match key {
+            "author" => c.author = value.to_string(),
+            "author-time" => c.time = value.parse().unwrap_or(0),
+            "summary" => c.summary = value.to_string(),
+            _ => {}
+        }
     }
-    Ok(lines)
+    lines
 }
 
 /// `3d ago` for `secs` seconds ago.
@@ -292,6 +311,7 @@ mod tests {
     #[test]
     fn blame_and_branch() {
         let repo = crate::testutil::fixture_repo();
+        // ponytail: needs `git` on PATH, like the app's blame.
         let lines = blame(repo.path(), Path::new("web/app.ts")).unwrap();
         assert_eq!(lines.len(), 5);
         let first = lines[0].as_ref().unwrap();
@@ -301,7 +321,7 @@ mod tests {
         );
         assert!(lines[2].is_some());
         assert_eq!(lines[3..], [None, None], "uncommitted lines");
-        assert!(blame(repo.path(), Path::new("nope.rs")).is_err());
+        assert!(blame(repo.path(), Path::new("nope.rs")).is_none());
         assert_eq!(branch(repo.path()).as_deref(), Some("main"));
         assert_eq!(ago(30), "just now");
         assert_eq!(ago(3 * 86_400 + 5), "3d ago");
